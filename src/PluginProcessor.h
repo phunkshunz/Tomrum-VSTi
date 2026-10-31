@@ -57,6 +57,7 @@ public:
 
     tomrum::Genome currentGenome() const;              // för panelen
     int skolaIndex() const;
+    int genomeVersion() const { return genVersion.load() * 31 + skolaIndex(); }
 
     static const std::vector<TomrumPreset>& presets();
 

@@ -1,0 +1,125 @@
+name: Bygg TOMRUM för macOS och Windows
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write # behövs för att skapa releaser
+
+jobs:
+  macos:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Testa motorn (regelböckerna, synk, ljud)
+        run: |
+          c++ -std=c++17 -O2 -Isrc tests/engine_test.cpp -o engine_test
+          ./engine_test
+
+      - name: Konfigurera
+        run: >
+          cmake -B build
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"
+          -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
+
+      - name: Bygg
+        run: cmake --build build --config Release -j 3
+
+      - name: Paketera
+        run: |
+          ART=build/TOMRUM_artefacts/Release
+          mkdir -p dist/TOMRUM
+          cp -R "$ART/VST3/TOMRUM.vst3" dist/TOMRUM/
+          cp -R "$ART/AU/TOMRUM.component" dist/TOMRUM/
+          cp -R "$ART/Standalone/TOMRUM.app" dist/TOMRUM/
+          cp scripts/installera.command dist/TOMRUM/
+          chmod +x dist/TOMRUM/installera.command
+          for b in dist/TOMRUM/TOMRUM.vst3 dist/TOMRUM/TOMRUM.component dist/TOMRUM/TOMRUM.app; do
+            codesign --force --deep --sign - "$b"
+          done
+          cd dist && ditto -c -k --keepParent TOMRUM TOMRUM-macOS.zip
+
+      # En fil per processor också, som de andra i MASKINHALLEN.
+      - name: Dela per processor (Apple Silicon och Intel)
+        run: |
+          cd dist
+          for arch in arm64 x86_64; do
+            if [ $arch = arm64 ]; then name=AppleSilicon; else name=Intel; fi
+            rm -rf "$name" && mkdir "$name" && cp -R TOMRUM "$name/"
+            for b in TOMRUM.vst3 TOMRUM.component TOMRUM.app; do
+              f="$name/TOMRUM/$b/Contents/MacOS/TOMRUM"
+              lipo "$f" -thin $arch -output "$f.thin" && mv "$f.thin" "$f"
+              codesign --force --deep --sign - "$name/TOMRUM/$b"
+            done
+            (cd "$name" && ditto -c -k --keepParent TOMRUM ../TOMRUM-macOS-$name.zip)
+          done
+          ls -la *.zip
+
+      - name: Ladda upp
+        uses: actions/upload-artifact@v4
+        with:
+          name: TOMRUM-macOS
+          path: |
+            dist/TOMRUM-macOS.zip
+            dist/TOMRUM-macOS-AppleSilicon.zip
+            dist/TOMRUM-macOS-Intel.zip
+
+
+  windows:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Konfigurera
+        run: cmake -B build -G "Visual Studio 17 2022" -A x64
+
+      - name: Bygg
+        run: cmake --build build --config Release --parallel 4
+
+      - name: Paketera
+        shell: pwsh
+        run: |
+          $ART = "build/TOMRUM_artefacts/Release"
+          New-Item -ItemType Directory -Force dist/TOMRUM | Out-Null
+          Copy-Item -Recurse "$ART/VST3/TOMRUM.vst3" dist/TOMRUM/
+          Copy-Item "$ART/Standalone/TOMRUM.exe" dist/TOMRUM/
+          Copy-Item scripts/installera.bat dist/TOMRUM/
+          Compress-Archive -Path dist/TOMRUM -DestinationPath dist/TOMRUM-Windows.zip
+
+      - name: Ladda upp
+        uses: actions/upload-artifact@v4
+        with:
+          name: TOMRUM-Windows
+          path: dist/TOMRUM-Windows.zip
+
+  # Varje bygge på main blir en release, så att
+  # .../releases/latest/download/TOMRUM-macOS.zip alltid ger senaste versionen.
+  release:
+    if: github.event_name == 'push'
+    needs: [macos, windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Skapa release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('bygge-{0}', github.run_number) }}
+          name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('TOMRUM bygge {0}', github.run_number) }}
+          target_commitish: ${{ github.sha }}
+          make_latest: true
+          body: "Ladda ner TOMRUM-macOS.zip nedan. Installera enligt README."
+          files: |
+            dist/TOMRUM-macOS.zip
+            dist/TOMRUM-macOS-AppleSilicon.zip
+            dist/TOMRUM-macOS-Intel.zip
+            dist/TOMRUM-Windows.zip
