@@ -23,6 +23,11 @@ else()
     set(TOMRUM_FORMATS VST3 Standalone)
 endif()
 
+# Linux: bygg även LV2
+set(PHZ_EXTRA_FORMATS "")
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    set(PHZ_EXTRA_FORMATS LV2)
+endif()
 juce_add_plugin(TOMRUM
     COMPANY_NAME "phunkshunz"
     PRODUCT_NAME "TOMRUM"
@@ -37,7 +42,8 @@ juce_add_plugin(TOMRUM
     COPY_PLUGIN_AFTER_BUILD FALSE
     VST3_CATEGORIES Instrument Drum
     AU_MAIN_TYPE kAudioUnitType_MusicDevice
-    FORMATS ${TOMRUM_FORMATS})
+    LV2URI "https://phunkshunz.github.io/lv2/TOMRUM"
+    FORMATS ${TOMRUM_FORMATS} ${PHZ_EXTRA_FORMATS})
 
 target_sources(TOMRUM
     PRIVATE
