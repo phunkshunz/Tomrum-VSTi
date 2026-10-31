@@ -510,6 +510,7 @@ private:
 
     float renderVoice (int l, const Sound& d) noexcept
     {
+        (void) d;
         auto& v = voice[l];
         if (v.amp < 1.0e-5f) return 0.0f;
         float y = 0.0f;

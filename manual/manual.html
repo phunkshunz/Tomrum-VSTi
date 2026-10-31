@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>TOMRUM – User Manual</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800;900&family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=block">
+<link rel="stylesheet" href="manual.css">
+<style>
+  @page { @bottom-left { content: "TOMRUM · USER MANUAL"; } }
+  :root { --sodium: #e3b264; --sodium-dk: #a8813f; }
+</style>
+</head>
+<body>
+
+<section class="cover">
+  <div class="stripe"></div>
+  <div class="kicker">MASKINHALLEN · USER MANUAL · VERSION 1.0</div>
+  <h1>TOMRUM</h1>
+  <div class="what">GROOVE FROM EMPTY SPACE · EIGHT VOICES · SELF-BUILDING SEQUENCES</div>
+  <p class="tag">TOMRUM is Swedish for "empty space". It is a drum and groove synth that builds its music from what is not played. Press play and it is already running: eight voices, a sequence written by the rulebook of a school, timing that sits exactly wrong, and sound that slowly rots over the night.</p>
+  <div class="foot">
+    <div>VST3 · AU · STANDALONE<br>MACOS · WINDOWS (VST3)</div>
+    <b>MASKIN<span>HALLEN</span></b>
+  </div>
+</section>
+
+<h2 class="page">Contents</h2>
+<ol class="toc">
+  <li><span>01</span>Welcome</li>
+  <li><span>02</span>Install</li>
+  <li><span>03</span>Your first minute</li>
+  <li><span>04</span>The eight schools</li>
+  <li><span>05</span>The eight voices</li>
+  <li><span>06</span>GENETIK, freeze and presets</li>
+  <li><span>07</span>Time: SWING, FRICTION, PARASITE</li>
+  <li><span>08</span>Space: MINUS, DUB, PUMP, CEILING, ROT</li>
+  <li><span>09</span>MIDI out and troubleshooting</li>
+</ol>
+
+<h2><span class="n">01</span>Welcome</h2>
+<p class="lead">Generative sequencers always fill in too much. TOMRUM takes away.</p>
+<p>The German and Romanian minimal schools of the late 90s and 2000s worked like engineers, not songwriters: cut away everything that is not needed, leave a naked, pulsing skeleton, and let the timing sit a few milliseconds off so that the skeleton swings. TOMRUM is built around that idea. Every pattern comes from a <strong>rulebook</strong>, every hit has its own <strong>friction</strong> behind the grid, and a <strong>MINUS</strong> control removes hits until the groove is made of the gaps.</p>
+<ul>
+  <li><strong>Eight voices</strong> synthesised inside: kick, sub bass, click, hat, wood block, scrape, chord stab and a ghost that only plays in the silence.</li>
+  <li><strong>Eight schools</strong>, each one a rulebook for rhythm, off-grid feel and sound.</li>
+  <li><strong>GENETIK</strong> builds a new groove and sound from the rulebook. Never free chaos.</li>
+  <li><strong>PARASITE</strong>: drop any drum loop on the panel and TOMRUM steals how crooked it sits.</li>
+  <li><strong>ROT</strong>: nothing sounds the same for long. Over about seven minutes the ceiling sinks and the stereo narrows.</li>
+  <li><strong>800 presets</strong>, one hundred per school.</li>
+</ul>
+
+<div class="box">
+  <b class="h">About the Swedish labels</b>
+  <table>
+    <thead><tr><th>On screen</th><th>English</th><th>On screen</th><th>English</th></tr></thead>
+    <tbody>
+      <tr><td><span class="k">Skola</span></td><td>School (rulebook)</td><td><span class="k">Ljud</span></td><td>Sound</td></tr>
+      <tr><td><span class="k">Sväng</span></td><td>Swing</td><td><span class="k">Friktion</span></td><td>Friction</td></tr>
+      <tr><td><span class="k">Tak</span></td><td>Ceiling (low-pass)</td><td><span class="k">Ruttna</span></td><td>Rot</td></tr>
+      <tr><td><span class="k">Frys</span></td><td>Freeze</td><td><span class="k">Tyst</span></td><td>Mute</td></tr>
+      <tr><td><span class="k">Nivå</span></td><td>Level</td><td><span class="k">Grundton</span></td><td>Root note</td></tr>
+      <tr><td><span class="k">Ångra</span></td><td>Undo</td><td><span class="k">Spela</span></td><td>Play (own clock)</td></tr>
+      <tr><td><span class="k">Glöm loopen</span></td><td>Forget the loop</td><td><span class="k">Volym</span></td><td>Volume</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h2 class="page"><span class="n">02</span>Install</h2>
+<p><strong>macOS:</strong> unzip <span class="k">TOMRUM-macOS.zip</span> from your Downloads folder, open Terminal and run:</p>
+<pre>bash ~/Downloads/TOMRUM/installera.command</pre>
+<p>Quit your DAW completely and start it again. TOMRUM shows up among the <strong>instruments</strong>. Requires macOS 11 or newer, Intel or Apple Silicon.</p>
+<p><strong>Windows:</strong> unzip <span class="k">TOMRUM-Windows.zip</span> and copy <span class="k">TOMRUM.vst3</span> to <span class="k">C:\Program Files\Common Files\VST3</span>.</p>
+<p>Put TOMRUM on an instrument track. That is all. It needs no notes in: it plays by itself and follows the DAW's tempo and play/stop.</p>
+
+<h2 class="page"><span class="n">03</span>Your first minute</h2>
+<ol class="steps">
+  <li>Press play in your DAW. No DAW? The standalone app starts by itself; otherwise press <span class="k">SPELA</span>.</li>
+  <li>Pick a <span class="k">SKOLA</span>. Changing school runs <span class="k">GENETIK</span> at once.</li>
+  <li>Hit <span class="k">GENETIK</span> until something grabs you. Or step through presets with the arrows.</li>
+  <li><span class="k">F</span> (freeze) the lanes you love. Hit <span class="k">GENETIK</span> again: only the others change.</li>
+  <li>Click a lane's <strong>name</strong> to re-roll only that lane. <span class="k">LJUD</span> keeps the groove and rolls a new sound.</li>
+  <li>Turn <span class="k">MINUS</span> up and listen to the groove get better as it gets emptier.</li>
+  <li>Went too far? <span class="k">ÅNGRA</span> goes back, up to 40 steps.</li>
+</ol>
+<h3>The panel</h3>
+<p>Left: the eight lanes. Each shows its cycle as cells: a full amber cell is a hit, a grey dash is a step where the rulebook allows a hit but none was chosen. A lane that is not 16 steps long shows its length at the end of the cycle, so you can see the polyrhythm. In the middle: the void scope, one ring per lane, kick innermost. The glow in the centre grows when nothing is playing: the more silence, the more it lights up. The red arc round the edge is how far ROT has gone.</p>
+
+<h2 class="page"><span class="n">04</span>The eight schools</h2>
+<p>A school is a rulebook. For every lane it holds up to three pattern variants written as probabilities per step, a Markov rule for what follows a hit, a friction range in milliseconds, how many hits are allowed per cycle, and whether the lane may hit together with the kick. It also holds the sound: kick pitch and length, hat colour, wood pitch, chord, ceiling, dub, pump, ring modulation, bit crushing, crackle and noise bed. GENETIK only ever chooses inside those limits.</p>
+<table>
+  <thead><tr><th>School</th><th>Character</th></tr></thead>
+  <tbody>
+    <tr><td><span class="k">UNDER VATTEN</span></td><td>Everything drowned: a 2 kHz ceiling, dub, pump against an endless four. Like banging your head on a concrete wall under water. 124 BPM.</td></tr>
+    <tr><td><span class="k">PINCETT</span></td><td>Tweezers. Subtraction: 1 ms clicks, a sine bass that drops in pitch every 17th step, most hits removed. 128 BPM.</td></tr>
+    <tr><td><span class="k">RUTTEN SVÄNG</span></td><td>Rotten swing. Wood and saucepans 14 ms behind, a 15/16 cycle that slides over the bar like wet soap. 124 BPM.</td></tr>
+    <tr><td><span class="k">FIENTLIG FUNK</span></td><td>Hostile funk. 7/8 over the four, ring modulation and aliasing until the polyrhythm fakes a funk. 130 BPM.</td></tr>
+    <tr><td><span class="k">KYLTORN</span></td><td>Cooling tower. Dub techno: minor 9 chords on the after-beat, tape echo losing its top, a white noise bed breathing with the kick. 122 BPM.</td></tr>
+    <tr><td><span class="k">KLINIK</span></td><td>Clinic. Ice-cold maths: euclidean clicks, sine bursts instead of hats, psychopathic precision. 120 BPM.</td></tr>
+    <tr><td><span class="k">KASSETT</span></td><td>A tape left out in the rain: crackle becomes the hats, a 10 kHz ceiling, kick and clap rolled off. 118 BPM.</td></tr>
+    <tr><td><span class="k">TRÄKLOSS</span></td><td>Wood block. A sickly tight low end with dry wood and bongos dancing in triplets over a dead straight kick. 128 BPM.</td></tr>
+  </tbody>
+</table>
+
+<h2 class="page"><span class="n">05</span>The eight voices</h2>
+<table>
+  <thead><tr><th>Lane</th><th>Sound</th><th>MIDI note</th></tr></thead>
+  <tbody>
+    <tr><td><span class="k">KICK</span></td><td>Sine with a pitch drop and a click. Always on the grid, never removed by MINUS.</td><td>C1 (36)</td></tr>
+    <tr><td><span class="k">BAS</span></td><td>Short sine sub, follows <span class="k">GRUNDTON</span>. Some schools let it drop a fourth now and then.</td><td>root</td></tr>
+    <tr><td><span class="k">KLICK</span></td><td>4 ms band-passed noise tick.</td><td>C#1 (37)</td></tr>
+    <tr><td><span class="k">HATT</span></td><td>High-passed noise, or a short sine burst in KLINIK.</td><td>F#1 (42)</td></tr>
+    <tr><td><span class="k">TRÄ</span></td><td>Wood block: two inharmonic sines.</td><td>E4 (76)</td></tr>
+    <tr><td><span class="k">SKRAP</span></td><td>Contact-mic scrape: crackle through a resonant band-pass.</td><td>A#3 (70)</td></tr>
+    <tr><td><span class="k">STAB</span></td><td>Four-note chord through a low-pass, a dub classic.</td><td>root + 12</td></tr>
+    <tr><td><span class="k">SPÖKE</span></td><td>The ghost. Plays only where no other lane hits: the groove made of silence.</td><td>D#4 (75)</td></tr>
+  </tbody>
+</table>
+<p>Each lane has <span class="k">F</span> (freeze), <span class="k">T</span> (mute) and a level slider. Double-click a slider or knob to reset it.</p>
+
+<h2 class="page"><span class="n">06</span>GENETIK, freeze and presets</h2>
+<p><span class="k">GENETIK</span> builds a new genome: patterns for every lane that is not frozen, plus a new sound, all from the school's rulebook. The knobs MINUS, SVÄNG, DUB and PUMP jump to the genome's values, so you can hear where the school wants to be and then push it.</p>
+<p>Clicking a lane's <strong>name</strong> runs GENETIK on that lane only. <span class="k">LJUD</span> rolls a new sound and keeps the groove. Everything is undoable with <span class="k">ÅNGRA</span>.</p>
+<p><strong>Presets:</strong> 800, one hundred per school. Each preset is a fixed seed, so it always comes back exactly the same. Frozen lanes are left alone when you change preset, so you can keep a kick and bass you love and browse everything on top of it. Your own rolled grooves are saved inside the DAW project, note for note.</p>
+<p>Everything is calculated from the song position: rewind to bar 33 and you hear exactly what played at bar 33 last time. Loops and exports stay stable.</p>
+
+<h2 class="page"><span class="n">07</span>Time: SWING, FRICTION, PARASITE</h2>
+<p><span class="k">SVÄNG</span> drags the odd 16ths, inside the school's own range.</p>
+<p><span class="k">FRIKTION</span> gives every lane its own lateness: the school sets a range per lane (from a couple of milliseconds up to about 20) and every hit picks a fixed spot inside it. The kick never drags. 0 % is straight, 200 % is twice the school's friction.</p>
+<p><span class="k">PARASIT</span> lays an off-grid template over the 16ths. Every school has its own. Or <strong>drop a drum loop</strong> (WAV, AIFF or FLAC) on the parasite box, or click it to pick a file: TOMRUM finds the hits, works out how many bars the loop is at your tempo, and measures how early or late every 16th sits. That crookedness is then laid onto TOMRUM's own hits. A hand drum played on a saucepan works beautifully. <span class="k">GLÖM LOOPEN</span> goes back to the school's template.</p>
+<p>The parasite box shows the template as 16 bars: down is late, up is early, the beats are white.</p>
+
+<h2 class="page"><span class="n">08</span>Space: MINUS, DUB, PUMP, CEILING, ROT</h2>
+<p><span class="k">MINUS</span> removes hits. Weak steps go first, the kick never. The same hit always disappears in the same place, so the space becomes part of the pattern instead of random dropouts.</p>
+<p><span class="k">DUB</span> is the chance that a single hit is thrown down into the basement echo. The rest stays dry, so one hit in four suddenly echoes away without muddying the mix.</p>
+<p><span class="k">PUMP</span> lets the kick press everything else down. <span class="k">TAK</span> (ceiling) is the low-pass above everything, 100 % is the school's ceiling.</p>
+<p><span class="k">RUTTNA</span> (rot): from the moment you press play the ceiling sinks and the stereo width narrows, a little every bar, over about seven minutes. After a long set the knife-sharp loop has rotted down to a dull pulse in the basement without a single automation curve. Stop and play again to start fresh. At 0 % nothing rots.</p>
+<p><span class="k">VARIATION</span> turns weak steps every fourth bar, always inside the rulebook, so nothing loops exactly the same.</p>
+
+<h2 class="page"><span class="n">09</span>MIDI out and troubleshooting</h2>
+<p>Every hit is also sent as a MIDI note on channel 1 (see the table in chapter 05), so TOMRUM can double its groove on another drum machine or synth placed after it.</p>
+<ul>
+  <li><strong>Nothing happens:</strong> is the DAW playing? Without a DAW, press <span class="k">SPELA</span>.</li>
+  <li><strong>macOS says the plugin is damaged:</strong> run <span class="k">installera.command</span> again. It removes the quarantine flag.</li>
+  <li><strong>The loop was not accepted:</strong> it needs at least six clear hits and should be a loop of 1, 2, 4 or 8 bars. Set your DAW tempo near the loop's tempo first.</li>
+  <li><strong>It sounds too dull after a while:</strong> that is ROT doing its job. Turn <span class="k">RUTTNA</span> down, or stop and play again.</li>
+  <li><strong>Changing SKOLA by automation did nothing:</strong> automation only selects the school. Press GENETIK (or pick it on the panel) to build from it.</li>
+</ul>
+
+</body>
+</html>

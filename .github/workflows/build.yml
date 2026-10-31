@@ -1,0 +1,135 @@
+name: Bygg TOMRUM
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write # behövs för att skapa releaser
+
+jobs:
+  # Manualen görs till PDF av Chrome och läggs i zipparna.
+  manual:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Gör PDF-manualen
+        run: |
+          mkdir -p dist
+          google-chrome --headless=new --no-sandbox --disable-gpu --no-pdf-header-footer \
+            --virtual-time-budget=20000 --run-all-compositor-stages-before-draw \
+            --print-to-pdf="$PWD/dist/TOMRUM-Manual.pdf" "file://$PWD/manual/manual.html"
+          test -s dist/TOMRUM-Manual.pdf
+
+      - name: Testa motorn
+        run: |
+          g++ -std=c++17 -O2 -Isrc tests/engine_test.cpp -o engine_test
+          ./engine_test
+
+      - name: Ladda upp
+        uses: actions/upload-artifact@v4
+        with:
+          name: TOMRUM-Manual
+          path: dist/TOMRUM-Manual.pdf
+
+  macos:
+    needs: manual
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Konfigurera
+        run: >
+          cmake -B build
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"
+          -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
+
+      - name: Bygg
+        run: cmake --build build --config Release -j 3
+
+      - name: Hämta manualen
+        uses: actions/download-artifact@v4
+        with:
+          name: TOMRUM-Manual
+          path: dist/TOMRUM
+
+      - name: Paketera
+        run: |
+          ART=build/Tomrum_artefacts/Release
+          mkdir -p dist/TOMRUM
+          cp -R "$ART/VST3/TOMRUM.vst3" dist/TOMRUM/
+          cp -R "$ART/AU/TOMRUM.component" dist/TOMRUM/
+          cp -R "$ART/Standalone/TOMRUM.app" dist/TOMRUM/
+          cp scripts/installera.command dist/TOMRUM/
+          chmod +x dist/TOMRUM/installera.command
+          for b in dist/TOMRUM/TOMRUM.vst3 dist/TOMRUM/TOMRUM.component dist/TOMRUM/TOMRUM.app; do
+            codesign --force --deep --sign - "$b"
+          done
+          cd dist && ditto -c -k --keepParent TOMRUM TOMRUM-macOS.zip
+
+      - name: Ladda upp
+        uses: actions/upload-artifact@v4
+        with:
+          name: TOMRUM-macOS
+          path: dist/TOMRUM-macOS.zip
+
+  windows:
+    needs: manual
+    runs-on: windows-2022
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Konfigurera
+        run: cmake -B build -G "Visual Studio 17 2022" -A x64
+
+      - name: Bygg
+        run: cmake --build build --config Release --target Tomrum_VST3 -j 3
+
+      - name: Hämta manualen
+        uses: actions/download-artifact@v4
+        with:
+          name: TOMRUM-Manual
+          path: dist/TOMRUM
+
+      - name: Paketera
+        shell: pwsh
+        run: |
+          Copy-Item -Recurse "build/Tomrum_artefacts/Release/VST3/TOMRUM.vst3" "dist/TOMRUM/"
+          Compress-Archive -Path "dist/TOMRUM" -DestinationPath "dist/TOMRUM-Windows.zip"
+
+      - name: Ladda upp
+        uses: actions/upload-artifact@v4
+        with:
+          name: TOMRUM-Windows
+          path: dist/TOMRUM-Windows.zip
+
+  # Varje bygge på main blir en release, så att
+  # .../releases/latest/download/TOMRUM-macOS.zip alltid ger senaste versionen.
+  release:
+    if: always() && github.event_name == 'push' && needs.macos.result == 'success'
+    needs: [manual, macos, windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Skapa release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('tomrum-bygge-{0}', github.run_number) }}
+          name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('TOMRUM bygge {0}', github.run_number) }}
+          target_commitish: ${{ github.sha }}
+          make_latest: true
+          body: "Mac: ladda ner TOMRUM-macOS.zip och installera enligt README. Windows: TOMRUM-Windows.zip (VST3). Manualen ligger i zipparna och som PDF här."
+          files: |
+            dist/TOMRUM-macOS.zip
+            dist/TOMRUM-Windows.zip
+            dist/TOMRUM-Manual.pdf

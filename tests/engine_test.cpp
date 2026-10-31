@@ -1,5 +1,9 @@
 // TOMRUM: motortest. Slumpen ska alltid hålla sig inom regelboken.
 #include "../src/Tomrum.h"
+#include "../src/Presets.h"
+#include "../src/Onset.h"
+#include <set>
+#include <string>
 #include <cstdio>
 #include <cstring>
 using namespace tomrum;
@@ -132,6 +136,51 @@ int main()
         for (int k = 0; k < 16; ++k) on.push_back (k * s16 + ((k & 1) ? s16 / 5 : 0));
         Parasite p; CHECK (extractParasite (on, len, 16, p), "parasit misslyckades");
         CHECK (p.off[1] > 0.15f && std::fabs (p.off[0]) < 0.02f, "parasit fel %.3f %.3f", p.off[0], p.off[1]);
+    }
+
+    // 6) Presets: unika namn, rätt skola, sparformatet tål rundtur
+    {
+        std::set<std::string> names;
+        for (int i = 0; i < kNumPresets; ++i) names.insert (presetName (i));
+        CHECK ((int) names.size() == kNumPresets, "presetnamn inte unika (%d)", (int) names.size());
+        for (int i : { 0, 99, 100, 433, kNumPresets - 1 })
+        {
+            Genome g = presetGenome (i, Genome {}, 0);
+            CHECK (g.skola == presetSkola (i), "preset %d fel skola", i);
+            Genome back;
+            CHECK (genomeFromString (genomeToString (g), back), "preset %d gick inte att läsa tillbaka", i);
+            for (int l = 0; l < kLanes; ++l)
+            {
+                CHECK (back.lane[l].len == g.lane[l].len && back.lane[l].hits == g.lane[l].hits, "preset %d spår %d rundtur", i, l);
+                for (int k = 0; k < g.lane[l].len; ++k) CHECK (std::fabs (back.lane[l].weight[k] - g.lane[l].weight[k]) < 0.001f, "vikt");
+            }
+            CHECK (std::fabs (back.snd.ceiling - g.snd.ceiling) < 0.5f && back.seed == g.seed, "ljud rundtur");
+        }
+        Genome junk;
+        CHECK (! genomeFromString ("skräp;1;2", junk), "skräp lästes");
+        // frysta spår behålls vid preset-byte
+        Genome a = presetGenome (5, Genome {}, 0);
+        Genome b = presetGenome (612, a, 1u << Hat);
+        CHECK (b.lane[Hat].hits == a.lane[Hat].hits && b.lane[Hat].len == a.lane[Hat].len, "fryst spår ändrades");
+    }
+
+    // 7) Örat: hittar slagen i en syntetisk loop med släpande udda 16-delar
+    {
+        const double fs = 44100, bpm = 124;
+        const int len = (int) (fs * 240.0 / bpm * 2);   // två takter
+        std::vector<float> loop ((size_t) len, 0.0f);
+        const double s16 = len / 32.0;
+        for (int k = 0; k < 32; ++k)
+        {
+            const int at = (int) (k * s16 + ((k & 1) ? s16 * 0.22 : 0));
+            for (int i = 0; i < 1500 && at + i < len; ++i) loop[(size_t) (at + i)] += (float) (std::sin (i * 0.3) * std::exp (-i / 300.0) * ((k % 4) ? 0.4 : 0.9));
+        }
+        const auto on = detectOnsets (loop.data(), len, fs);
+        CHECK (on.size() >= 28 && on.size() <= 34, "örat hittade %d slag", (int) on.size());
+        CHECK (loopBars (len, fs, bpm) == 2, "loopens längd");
+        Parasite p;
+        CHECK (extractParasite (on, len, loopBars (len, fs, bpm) * 16, p), "parasit ur loop");
+        CHECK (p.off[1] > 0.12f && p.off[3] > 0.12f && std::fabs (p.off[0]) < 0.05f, "otakt ur loop %.3f %.3f", p.off[0], p.off[1]);
     }
 
     std::printf (fails ? "\n%d FEL\n" : "\nALLT GRÖNT\n", fails);
