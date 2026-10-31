@@ -2,6 +2,7 @@
 #include "PluginProcessor.h"
 #include "Gui.h"
 #include "About.h"
+#include "Sprak.h"
 
 // TOMRUM: bunkerpanelen. Mattsvart, bärnsten, ett oscilloskop som lyser upp i tystnaden.
 namespace Bunker
@@ -70,11 +71,12 @@ private:
     TomrumProcessor& proc;
 };
 
-class TomrumEditor : public juce::AudioProcessorEditor, public juce::FileDragAndDropTarget, private juce::Timer
+// Själva panelen. Byggs om när språket byts.
+class TomrumPanel : public juce::Component, public juce::FileDragAndDropTarget, private juce::Timer
 {
 public:
-    explicit TomrumEditor (TomrumProcessor&);
-    ~TomrumEditor() override;
+    explicit TomrumPanel (TomrumProcessor&);
+    ~TomrumPanel() override;
     void paint (juce::Graphics&) override;
     void resized() override;
     void mouseDown (const juce::MouseEvent&) override;
@@ -118,12 +120,32 @@ private:
     juce::ComboBox rootBox;
     std::unique_ptr<BoxAtt> rootAtt;
     std::unique_ptr<juce::FileChooser> chooser;
-    AboutOverlay about { "TOMRUM", juce::String::fromUTF8 ("Das Leerraum · sväng av tomrum") };
+    AboutOverlay about { "TOMRUM", sprak::trU ("Das Leerraum · sväng av tomrum") + " · v1.1" };
 
     juce::String status;
     bool dragging = false;
     int lastVersionShown = -1;
     juce::Rectangle<int> header, pSkola, pMach, pScope, pGrid, pKnobs, pPara, statusArea, logoArea;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TomrumPanel)
+};
+
+//==============================================================================
+// Ramen runt panelen: SV | EN-knappen bygger om panelen på valt språk.
+class TomrumEditor : public juce::AudioProcessorEditor
+{
+public:
+    explicit TomrumEditor (TomrumProcessor&);
+    ~TomrumEditor() override;
+    void resized() override;
+    void paint (juce::Graphics& g) override { g.fillAll (juce::Colour (0xff121314)); }
+
+private:
+    void byggPanel();
+
+    TomrumProcessor& proc;
+    std::unique_ptr<TomrumPanel> panel;
+    sprak::Knapp sprakKnapp;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TomrumEditor)
 };

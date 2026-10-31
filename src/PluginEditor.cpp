@@ -1,4 +1,5 @@
 #include "PluginEditor.h"
+#include "Sprak.h"
 
 using namespace juce;
 using namespace Bunker;
@@ -6,7 +7,7 @@ using namespace tomrum;
 
 namespace
 {
-String u8 (const char* s) { return String::fromUTF8 (s); }
+String u8 (const char* s) { return sprak::trU (s); }
 const char* kLaneTips[kLanes] = {
     "KICK: står alltid rakt på rutnätet. MINUS och MUTATION rör den aldrig.",
     "BAS: sinus som faller i tonhöjd på skolans egna steg.",
@@ -56,7 +57,7 @@ void VoidScope::paint (Graphics& g)
     // texten som kommer fram i tystnaden
     g.setFont (FontOptions (30.0f, Font::bold).withHorizontalScale (1.25f));
     g.setColour (amber.withAlpha (run ? 0.08f + 0.6f * v * v : 0.35f));
-    g.drawText ("T O M R U M", r.reduced (10), Justification::centred);
+    g.drawText (sprak::tr ("T O M R U M"), r.reduced (10), Justification::centred);
 
     // RUTTNA-mätaren
     const float rot = proc.rotLevel.load();
@@ -64,7 +65,7 @@ void VoidScope::paint (Graphics& g)
     g.setColour (edge); g.fillRect (bar);
     g.setColour (amberDk); g.fillRect (bar.withWidth (bar.getWidth() * rot));
     g.setColour (ash); g.setFont (FontOptions (9.0f));
-    g.drawText ("RUTTNA " + String (roundToInt (rot * 100)) + " %", r.removeFromBottom (14).reduced (10, 0), Justification::centredRight);
+    g.drawText (sprak::tr ("RUTTNA ") + String (roundToInt (rot * 100)) + " %", r.removeFromBottom (14).reduced (10, 0), Justification::centredRight);
     g.setColour (edge);
     g.drawRoundedRectangle (getLocalBounds().toFloat().reduced (0.5f), 6.0f, 1.0f);
 }
@@ -92,7 +93,7 @@ void GridView::paint (Graphics& g)
         if (s.lane[l].notOnKick) info << u8 (" · ej på kick");
         if (l == Kick) info = u8 ("rak · rörs aldrig");
         if (l == Spoke) info = u8 ("bara i tystnaden");
-        g.drawText (info, 8, (int) (y + h * 0.5f + 3), 90, 11, Justification::centredLeft);
+        g.drawText (sprak::tr (info), 8, (int) (y + h * 0.5f + 3), 90, 11, Justification::centredLeft);
 
         const int play = run && lg.len > 0 ? (int) (((k % lg.len) + lg.len) % lg.len) : -1;
         for (int c = 0; c < cells; ++c)
@@ -147,8 +148,7 @@ void ParasiteView::paint (Graphics& g)
 }
 
 // ---------------------------------------------------------------- panelen
-TomrumEditor::TomrumEditor (TomrumProcessor& p)
-    : AudioProcessorEditor (&p), proc (p)
+TomrumPanel::TomrumPanel (TomrumProcessor& p) : proc (p)
 {
     setLookAndFeel (&lnf);
     lnf.setColour (TextButton::buttonOnColourId, amber);
@@ -204,7 +204,7 @@ TomrumEditor::TomrumEditor (TomrumProcessor& p)
         lvl[l].setTextBoxStyle (Slider::NoTextBox, false, 0, 0);
         lvl[l].setColour (Slider::trackColourId, amberDk);
         lvl[l].setColour (Slider::backgroundColourId, plate2);
-        lvl[l].setTooltip (String::fromUTF8 (kLaneTips[l]));
+        lvl[l].setTooltip (sprak::trU (kLaneTips[l]));
         addAndMakeVisible (lvl[l]);
         lvlAtt[l] = std::make_unique<SldAtt> (proc.apvts, "lvl" + String (l), lvl[l]);
     }
@@ -237,15 +237,15 @@ TomrumEditor::TomrumEditor (TomrumProcessor& p)
     setStatus (u8 ("Tryck play i DAW:en. GENETIK för nytt, MUTATION för att låta det växa. MIDI ut på kanal 1."));
 }
 
-TomrumEditor::~TomrumEditor() { setLookAndFeel (nullptr); }
+TomrumPanel::~TomrumPanel() { setLookAndFeel (nullptr); }
 
-void TomrumEditor::setSkola (int i)
+void TomrumPanel::setSkola (int i)
 {
     if (auto* p = proc.apvts.getParameter ("skola")) p->setValueNotifyingHost (p->convertTo0to1 ((float) i));
     setStatus (u8 (skolor()[i].name) + u8 (" · ") + u8 (skolor()[i].sub));
 }
 
-void TomrumEditor::timerCallback()
+void TomrumPanel::timerCallback()
 {
     const int v = proc.genomeVersion();
     if (v != lastVersionShown) { lastVersionShown = v; grid.setGenome (proc.currentGenome()); para.repaint(); }
@@ -258,7 +258,7 @@ void TomrumEditor::timerCallback()
     scope.repaint(); grid.repaint();
 }
 
-void TomrumEditor::presetMenu()
+void TomrumPanel::presetMenu()
 {
     PopupMenu m;
     const auto& ps = TomrumProcessor::presets();
@@ -275,7 +275,7 @@ void TomrumEditor::presetMenu()
     });
 }
 
-void TomrumEditor::stepPreset (int dir)
+void TomrumPanel::stepPreset (int dir)
 {
     const int n = proc.getNumPrograms();
     const int i = ((proc.getCurrentProgram() + dir) % n + n) % n;
@@ -283,7 +283,7 @@ void TomrumEditor::stepPreset (int dir)
     setStatus (proc.getProgramName (i));
 }
 
-void TomrumEditor::chooseLoop()
+void TomrumPanel::chooseLoop()
 {
     chooser = std::make_unique<FileChooser> ("Välj en loop", File(), "*.wav;*.aif;*.aiff;*.flac;*.mp3;*.ogg");
     chooser->launchAsync (FileBrowserComponent::openMode | FileBrowserComponent::canSelectFiles, [this] (const FileChooser& fc)
@@ -292,7 +292,7 @@ void TomrumEditor::chooseLoop()
     });
 }
 
-void TomrumEditor::filesDropped (const StringArray& files, int, int)
+void TomrumPanel::filesDropped (const StringArray& files, int, int)
 {
     dragging = false;
     for (auto& f : files)
@@ -306,12 +306,12 @@ void TomrumEditor::filesDropped (const StringArray& files, int, int)
     para.repaint(); repaint();
 }
 
-void TomrumEditor::mouseDown (const MouseEvent& e)
+void TomrumPanel::mouseDown (const MouseEvent& e)
 {
     if (logoArea.contains (e.getPosition())) { about.setBounds (getLocalBounds()); about.setVisible (true); about.toFront (false); }
 }
 
-void TomrumEditor::paint (Graphics& g)
+void TomrumPanel::paint (Graphics& g)
 {
     g.fillAll (black);
     // betongstruktur: svaga prickar
@@ -323,13 +323,13 @@ void TomrumEditor::paint (Graphics& g)
     auto h = header;
     g.setColour (amber);
     g.setFont (FontOptions (34.0f, Font::bold).withHorizontalScale (1.1f));
-    g.drawText ("TOMRUM", h.removeFromLeft (190), Justification::centredLeft);
+    g.drawText (sprak::tr ("TOMRUM"), h.removeFromLeft (190), Justification::centredLeft);
     g.setColour (ash);
     g.setFont (FontOptions (11.0f));
     g.drawText (u8 ("DAS LEERRAUM  ·  sväng av det som inte spelas"), h.removeFromLeft (320), Justification::centredLeft);
     g.setColour (amber.withAlpha (0.8f));
     g.setFont (FontOptions (11.0f, Font::bold));
-    g.drawText ("MASKINHALLEN", logoArea, Justification::centredRight);
+    g.drawText (sprak::tr ("MASKINHALLEN"), logoArea, Justification::centredRight);
 
     auto plateBox = [&] (Rectangle<int> a, const String& title, const String& sub = {})
     {
@@ -341,8 +341,8 @@ void TomrumEditor::paint (Graphics& g)
             g.fillEllipse ((float) p.x + (p.x == a.getX() ? 6 : -10), (float) p.y + (p.y == a.getY() ? 6 : -10), 4, 4);
         auto t = a.reduced (16, 8).removeFromTop (14);
         g.setColour (bone); g.setFont (FontOptions (11.5f, Font::bold));
-        g.drawText (title, t, Justification::centredLeft);
-        if (sub.isNotEmpty()) { g.setColour (ash); g.setFont (FontOptions (9.5f)); g.drawText (sub, t, Justification::centredRight); }
+        g.drawText (sprak::tr (title), t, Justification::centredLeft);
+        if (sub.isNotEmpty()) { g.setColour (ash); g.setFont (FontOptions (9.5f)); g.drawText (sprak::tr (sub), t, Justification::centredRight); }
     };
     const Skola& s = skolor()[proc.skolaIndex()];
     plateBox (pSkola, "SKOLA", String (s.bpm) + " BPM");
@@ -360,10 +360,10 @@ void TomrumEditor::paint (Graphics& g)
     }
 
     g.setColour (ash); g.setFont (FontOptions (10.5f));
-    g.drawText (status, statusArea, Justification::centredLeft);
+    g.drawText (sprak::tr (status), statusArea, Justification::centredLeft);
 }
 
-void TomrumEditor::resized()
+void TomrumPanel::resized()
 {
     auto r = getLocalBounds().reduced (14, 8);
     header = r.removeFromTop (48);
@@ -437,4 +437,40 @@ void TomrumEditor::resized()
         para.setBounds (p);
     }
     about.setBounds (getLocalBounds());
+}
+
+//==============================================================================
+TomrumEditor::TomrumEditor (TomrumProcessor& p) : AudioProcessorEditor (&p), proc (p)
+{
+    sprak::laddaOm();
+    byggPanel();
+    sprakKnapp.accent = amber;
+    sprakKnapp.onClick = [this]
+    {
+        sprak::sattEngelska (! sprak::engelska());
+        // bygg om panelen efter klicket, aldrig mitt i det
+        juce::Component::SafePointer<TomrumEditor> self (this);
+        juce::MessageManager::callAsync ([self] { if (self != nullptr) self->byggPanel(); });
+    };
+    addAndMakeVisible (sprakKnapp);
+    setSize (1200, 780);
+}
+
+TomrumEditor::~TomrumEditor() = default;
+
+void TomrumEditor::byggPanel()
+{
+    panel.reset();
+    panel = std::make_unique<TomrumPanel> (proc);
+    sprak::oversattAllt (*panel);
+    addAndMakeVisible (*panel);
+    sprakKnapp.toFront (false);
+    sprakKnapp.repaint();
+    if (getWidth() > 0) resized();
+}
+
+void TomrumEditor::resized()
+{
+    if (panel != nullptr) panel->setBounds (getLocalBounds());
+    sprakKnapp.setBounds (14 + 152, 8 + 4, 38, 14);
 }
