@@ -146,6 +146,23 @@ inline Genome mutate (const Genome& from, int skola, uint32_t seed, uint32_t lan
     return g;
 }
 
+// Återskapar ett genom ur fröna (det som sparas i projektet och i presets)
+inline Genome buildGenome (int skola, const uint32_t laneSeed[kLanes], uint32_t soundSeed)
+{
+    Genome g;
+    g.skola = std::clamp (skola, 0, kNumSkolor - 1);
+    g.seed = soundSeed;
+    const Skola& s = skolor()[g.skola];
+    for (int l = 0; l < kLanes; ++l)
+    {
+        Rng lr (laneSeed[l] * 31u + (uint32_t) l * 977u);
+        g.lane[l] = buildLane (s.lane[l], lr);
+    }
+    Rng rng (soundSeed);
+    g.snd = buildSound (s, rng);
+    return g;
+}
+
 // PARASIT: otakt per 16-del, andel av en 16-del (+ = sent)
 struct Parasite
 {
