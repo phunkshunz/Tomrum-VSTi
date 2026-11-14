@@ -132,7 +132,7 @@ inline constexpr Par kOrdlista[] =
     { "KÖLN", "COLOGNE" }, { "BERLIN", "BERLIN" }, { "BUKAREST", "BUCHAREST" }, { "RAK", "STRAIGHT" }, { "RULL", "ROLLING" }, { "BRUTEN", "BROKEN" },
     { "SLÄP", "DRAG" }, { "OTAKT", "OFFBEAT" }, { "MOLL", "MINOR" }, { "DORISK", "DORIAN" }, { "FRYGISK", "PHRYGIAN" }, { "PENTA", "PENTA" },
     { "INTRO", "INTRO" }, { "IN", "IN" }, { "GROOVE", "GROOVE" }, { "BREAK", "BREAK" }, { "TILLBAKA", "BACK" }, { "TOPP", "PEAK" },
-    { "TRÄ", "WOOD" }, { "MIDI UT", "MIDI OUT" }, { "takt", "bar" }, { "tryck play", "press play" }, { "64 TAKTER", "64 BARS" }, { "128 TAKTER", "128 BARS" },
+    { "Band: tonen svajar lite, som en gammal kassett.", "Tape: the pitch wobbles a little, like an old cassette." }, { "TRÄ", "WOOD" }, { "MIDI UT", "MIDI OUT" }, { "takt", "bar" }, { "tryck play", "press play" }, { "64 TAKTER", "64 BARS" }, { "128 TAKTER", "128 BARS" },
     { "täthet · lås · tyst · tärning", "density · lock · mute · dice" },
     { "KARTAN: dra punkten. Åt sidan KÖLN, BERLIN, BUKAREST. Uppåt RAK, RULL, BRUTEN. Mönstren glider över i varandra.", "THE MAP: drag the dot. Sideways COLOGNE, BERLIN, BUCHAREST. Upwards STRAIGHT, ROLLING, BROKEN. The patterns glide into each other." },
     { "Hur tomt. De svaga slagen försvinner först. Kicken står kvar.", "How empty. The weak hits go first. The kick stays." },

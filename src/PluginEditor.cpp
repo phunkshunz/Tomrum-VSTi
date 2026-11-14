@@ -266,7 +266,7 @@ TomrumEditor::TomrumEditor (TomrumProcessor& p) : AudioProcessorEditor (p), proc
     knob (riff, "riff", "RIFF", teal, "0 = bara grundtonen. Upp = basen och staben spelar små figurer i skalan.");
     knob (djup, "djup", "DJUP", teal, "DUB: hur många slag som kastas ner i ekot.");
     knob (kallare, "kallare", u8"KÄLLARE", teal, "Betongrummet. Kick och bas hålls torra.");
-    knob (kassett, "kassett", "KASSETT", teal, "Band: svaj och knaster.");
+    knob (kassett, "kassett", "KASSETT", teal, "Band: tonen svajar lite, som en gammal kassett.");
     knob (ruttna, "ruttna", "RUTTNA", teal, "Taket sjunker och bredden smalnar ju längre låten går.");
     knob (pump, "pump", "PUMP", teal, "Allt utom kicken trycks ner av kicken.");
     knob (skolfarg, "skolfarg", u8"SKOLFÄRG", teal, "Hur mycket skolans egna mönster färgar kartan.");

@@ -371,14 +371,7 @@ public:
                 voice[l].throwEnv *= 0.9996f;
                 roomIn += v * (l == Bas ? 0.0f : 1.0f);
             }
-            bedGain += ((playing ? 1.0f : 0.0f) - bedGain) * 0.0005f;   // bäddarna tystnar när transporten står
-            if (d.crackle > 0.001f || c.kassett > 0.001f)
-            {
-                const float amt = std::max (d.crackle, c.kassett * 0.5f) * bedGain;
-                if (noise.uni() < 0.0024f * amt) crackleImp = noise.bi() * amt;
-                sL += crackleImp * 0.5f; sR += crackleImp * 0.4f; crackleImp *= 0.6f;
-            }
-            if (d.noiseBed > 0.001f) { const float nb = bedLp.lp (noise.bi()) * d.noiseBed * 0.25f * bedGain; sL += nb; sR += nb * 0.9f; }
+            // inget brus och inget knaster: bara slagen och deras rum
             if (d.crush > 0.001f)
             {
                 const float hold = 1.0f + d.crush * 18.0f;

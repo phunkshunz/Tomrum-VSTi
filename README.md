@@ -42,9 +42,9 @@ TOMRUM ligger bland instrumenten.
 | **PINCETT** | subtraktion: millimeterklick, sinusbas på 17 steg |
 | **RUTTEN SVÄNG** | allt släpar, trä och skrap i lös sväng |
 | **FIENTLIG FUNK** | ringmod och kross, funk som biter |
-| **KYLTORN** | dub i ett kyltorn: brusbädd som andas med kicken |
+| **KYLTORN** | dub i ett kyltorn: moll 9 på takten efter, ekot andas med kicken |
 | **KLINIK** | sinusskurar, rent och kliniskt |
-| **KASSETT** | knaster, band, varmt och slitet |
+| **KASSETT** | band som svajar, varmt och slitet |
 | **TRÄKLOSS** | trä, kvistar och stubbar |
 
 Varje skola bestämmer var slagen får ligga, hur tätt de får komma, vad som är förbjudet (till exempel slag på kicken), svängen och ljudets ramar. Rutorna i **MÖNSTER** visar regeln: skuggad ruta = slag tillåtet, tjock kant = alltid slag.
