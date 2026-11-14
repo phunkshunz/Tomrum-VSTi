@@ -431,7 +431,7 @@ void TomrumEditor::paint (Graphics& g)
         {
             const float a = (float) dl[i].fromBar / 64.0f, b = (i + 1 < nd ? (float) dl[i + 1].fromBar : 64.0f) / 64.0f;
             auto seg = Rectangle<float> (tl.getX() + tl.getWidth() * a, tl.getY() + 12.0f, tl.getWidth() * (b - a) - 2.0f, tl.getHeight() - 12.0f);
-            const float hgt = 0.35f + 0.65f * jlimit (0.0f, 1.0f, (float) __builtin_popcount (dl[i].lanes) / 8.0f + dl[i].dens);
+            const float hgt = 0.35f + 0.65f * jlimit (0.0f, 1.0f, (float) countNumberOfBits ((uint32) dl[i].lanes) / 8.0f + dl[i].dens);
             g.setColour ((dl[i].kick ? amberDk : edge).withAlpha (on ? 1.0f : 0.4f));
             g.fillRoundedRectangle (seg.withTrimmedTop (seg.getHeight() * (1.0f - hgt)), 2.0f);
             label (g, Rectangle<int> ((int) seg.getX(), (int) tl.getY(), (int) seg.getWidth(), 12), U (dl[i].name), on ? ash : ash.withAlpha (0.4f), 8.0f, Justification::centredLeft, false);
