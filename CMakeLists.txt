@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(TOMRUM VERSION 1.1.0)
+project(TOMRUM VERSION 2.0.0)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -81,4 +81,11 @@ if(TOMRUM_TESTS)
     target_compile_definitions(TomrumTest PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JucePlugin_Name="TOMRUM"
         JUCE_STANDALONE_APPLICATION=0 JUCE_USE_XRANDR=0 JUCE_USE_XINERAMA=0 JUCE_USE_XCURSOR=0 JUCE_USE_XRENDER=0 JUCE_USE_XSHM=0 JUCE_ALSA=0 JUCE_JACK=0)
     target_link_libraries(TomrumTest PRIVATE juce::juce_audio_utils PUBLIC juce::juce_recommended_config_flags)
+
+    juce_add_console_app(TomrumSnapshot PRODUCT_NAME "TomrumSnapshot")
+    target_sources(TomrumSnapshot PRIVATE tests/gui_snapshot.cpp src/PluginProcessor.cpp src/PluginEditor.cpp)
+    target_include_directories(TomrumSnapshot PRIVATE src)
+    target_compile_definitions(TomrumSnapshot PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JucePlugin_Name="TOMRUM"
+        JUCE_STANDALONE_APPLICATION=0 JUCE_USE_XRANDR=0 JUCE_USE_XINERAMA=0 JUCE_USE_XCURSOR=0 JUCE_USE_XRENDER=0 JUCE_USE_XSHM=0 JUCE_ALSA=0 JUCE_JACK=0)
+    target_link_libraries(TomrumSnapshot PRIVATE juce::juce_audio_utils PUBLIC juce::juce_recommended_config_flags)
 endif()

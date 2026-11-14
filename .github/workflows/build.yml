@@ -16,10 +16,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Testa motorn (regelböckerna, synk, ljud)
+      - name: Testa motorn (kartan, tomrum, gung, låten, riff, nivå)
         run: |
-          c++ -std=c++17 -O2 -Isrc tests/engine_test.cpp -o engine_test
-          ./engine_test
+          c++ -std=c++17 -O2 -Isrc tests/motor_test.cpp -o motor_test
+          ./motor_test
 
       - name: Konfigurera
         run: >

@@ -521,7 +521,7 @@ private:
     float laneDensity (const Controls& c, int l) const noexcept
     {
         const float g = 1.0f - clamp01 (c.tomrum);
-        if (l == Kick) return g > 0.04f ? 1.0f : 0.0f;
+        if (l == Kick) return g > 0.04f ? 0.45f + 0.5f * c.laneDens[Kick] : 0.0f;   // kicken: fyran står, spökkickar bara om man drar upp
         return std::clamp (g * (0.3f + 1.4f * c.laneDens[l]), 0.0f, 1.2f);
     }
 
@@ -535,6 +535,7 @@ private:
             const int pl = (int) std::strlen (p);
             w = lerp (w, digit (p[idx % pl]), clamp01 (c.skolfarg));
         }
+        if (w <= 0.0f) return 0.0f;   // tomma steg förblir tomma: slumpen fyller aldrig tystnaden
         // VARIATION: var fjärde takt flyttas vikterna lite (aldrig för kicken på X)
         if (c.variation > 0.001f && w < 1.0f)
         {

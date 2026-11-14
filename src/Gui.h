@@ -161,10 +161,25 @@ public:
 
     void setAccent (juce::Colour c) { slider.setColour (juce::Slider::rotarySliderFillColourId, c); }
 
+    // SIDA: kompakt läge. Ratten till vänster, namn och värde till höger. NAKEN: bara ratten.
+    bool sida = false, naken = false;
+
     void paint (juce::Graphics& g) override
     {
         using namespace ArmColours;
         auto r = getLocalBounds();
+        if (naken) return;
+        if (sida)
+        {
+            auto t = r.withTrimmedLeft (r.getHeight() + 4).withSizeKeepingCentre (r.getWidth() - r.getHeight() - 4, 26);
+            g.setColour (muted);
+            g.setFont (juce::FontOptions (9.5f));
+            g.drawText (sprak::tr (name), t.removeFromTop (12), juce::Justification::centredLeft, true);
+            g.setColour (text);
+            g.setFont (juce::FontOptions (11.0f, juce::Font::bold));
+            g.drawText (slider.getTextFromValue (slider.getValue()), t, juce::Justification::centredLeft, true);
+            return;
+        }
         auto bottom = r.removeFromBottom (26);
         g.setColour (muted);
         g.setFont (juce::FontOptions (9.5f));
@@ -174,7 +189,12 @@ public:
         g.drawText (slider.getTextFromValue (slider.getValue()), bottom, juce::Justification::centred, true);
     }
 
-    void resized() override { slider.setBounds (getLocalBounds().withTrimmedBottom (26)); }
+    void resized() override
+    {
+        if (naken) slider.setBounds (getLocalBounds());
+        else if (sida) slider.setBounds (getLocalBounds().withWidth (getHeight()));
+        else slider.setBounds (getLocalBounds().withTrimmedBottom (26));
+    }
 
     juce::Slider slider;
 

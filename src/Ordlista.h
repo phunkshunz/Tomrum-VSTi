@@ -123,5 +123,22 @@ inline constexpr Par kOrdlista[] =
     { "kvarglömt band i regnet: knastret blir hattarna, 10 kHz-tak", "a tape left out in the rain: the crackle becomes the hats, 10 kHz ceiling" },
     { "TRÄKLOSS", "WOODBLOCK" },
     { "sjukt tajt botten, torra träklossar som dansar i trioler", "insanely tight bottom, dry woodblocks dancing in triplets" },
+    // ---- TOMRUM 2
+    { "GUNG", "GROOVE" }, { "TONART", "KEY" }, { "LJUD", "SOUND" }, { "KARTAN", "THE MAP" },
+    { "LÅTEN", "THE TRACK" }, { "SPÅREN", "LANES" }, { "VARIANTER", "VARIATIONS" }, { "SPARA", "SAVE" },
+    { "ÅNGRA", "UNDO" }, { "SLUMPA ALLT", "RANDOMIZE ALL" }, { "NYTT MÖNSTER", "NEW PATTERN" }, { "DRA UT MIDI", "DRAG MIDI" },
+    { "LÅS", "LOCK" }, { "VARIATION", "VARIATION" }, { "FRIKTION", "FRICTION" }, { "RIFF", "RIFF" },
+    { "DJUP", "DEPTH" }, { "KÄLLARE", "BASEMENT" }, { "KASSETT", "TAPE" }, { "RUTTNA", "DECAY" }, { "PUMP", "PUMP" }, { "SKOLFÄRG", "SCHOOL COLOUR" },
+    { "KÖLN", "COLOGNE" }, { "BERLIN", "BERLIN" }, { "BUKAREST", "BUCHAREST" }, { "RAK", "STRAIGHT" }, { "RULL", "ROLLING" }, { "BRUTEN", "BROKEN" },
+    { "SLÄP", "DRAG" }, { "OTAKT", "OFFBEAT" }, { "MOLL", "MINOR" }, { "DORISK", "DORIAN" }, { "FRYGISK", "PHRYGIAN" }, { "PENTA", "PENTA" },
+    { "INTRO", "INTRO" }, { "IN", "IN" }, { "GROOVE", "GROOVE" }, { "BREAK", "BREAK" }, { "TILLBAKA", "BACK" }, { "TOPP", "PEAK" },
+    { "TRÄ", "WOOD" }, { "MIDI UT", "MIDI OUT" }, { "takt", "bar" }, { "tryck play", "press play" }, { "64 TAKTER", "64 BARS" }, { "128 TAKTER", "128 BARS" },
+    { "täthet · lås · tyst · tärning", "density · lock · mute · dice" },
+    { "KARTAN: dra punkten. Åt sidan KÖLN, BERLIN, BUKAREST. Uppåt RAK, RULL, BRUTEN. Mönstren glider över i varandra.", "THE MAP: drag the dot. Sideways COLOGNE, BERLIN, BUCHAREST. Upwards STRAIGHT, ROLLING, BROKEN. The patterns glide into each other." },
+    { "Hur tomt. De svaga slagen försvinner först. Kicken står kvar.", "How empty. The weak hits go first. The kick stays." },
+    { "LÅS: spåret behåller sitt mönster när du slumpar.", "LOCK: the lane keeps its pattern when you randomize." },
+    { "Variant: klicka för att byta (vid nästa takt). Med SPARA på: spara läget här. MIDI-tangent C3 till G3 byter också.", "Variation: click to switch (at the next bar). With SAVE on: store the current state here. MIDI keys C3 to G3 switch too." },
+    { "Dra till ett spår i DAW:en: 8 takter, eller hela låten om LÅTEN är på.", "Drag to a track in your DAW: 8 bars, or the whole track if THE TRACK is on." },
+    { "LÅTEN: arrangerar själv över 64 eller 128 takter. Intro, break utan kick, topp och fill. Samma låt varje gång från början.", "THE TRACK: arranges itself over 64 or 128 bars. Intro, break without kick, peak and fills. The same track every time from the start." },
 };
 } // namespace sprak

@@ -15,6 +15,8 @@ inline const std::vector<TomrumPreset>& tomrumLagen()
             { u8"Rullande Golv",   0.80f, 0.50f, 0.25f, 3, 0.65f, 0.45f, 0.30f, 0.30f },
             { u8"Bruten Morgon",   0.65f, 0.85f, 0.30f, 3, 0.55f, 0.55f, 0.40f, 0.35f },
             { u8"Tomt Rum",        0.40f, 0.30f, 0.65f, 1, 0.35f, 0.10f, 0.55f, 0.50f },
+            { u8"Släpande Tisdag", 0.25f, 0.65f, 0.35f, 2, 0.70f, 0.35f, 0.25f, 0.20f },
+            { u8"Sista Bussen",    0.95f, 0.15f, 0.40f, 4, 0.55f, 0.60f, 0.45f, 0.40f },
         };
         for (int s = 0; s < tomrum::kNumSkolor; ++s)
         {
