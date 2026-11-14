@@ -247,6 +247,7 @@ public:
         dlL.assign ((size_t) (sr * 3.0f) + 8, 0.0f); dlR.assign (dlL.size(), 0.0f);
         static const int roomLen[6] { 1031, 1327, 1523, 1777, 211, 347 };
         for (int i = 0; i < 6; ++i) room[(size_t) i].assign ((size_t) std::max (8, (int) (roomLen[i] * sr / 44100.0f)), 0.0f);
+        declickCoef = std::exp (-1.0f / (0.002f * sr));
         tape.assign ((size_t) (sr * 0.03f) + 8, 0.0f); tapeR.assign (tape.size(), 0.0f);
         reset();
     }
@@ -338,6 +339,10 @@ public:
         dHpL.set (300, 0.7f, sr); dHpR.set (300, 0.7f, sr); dLpL.set (2200, 0.7f, sr); dLpR.set (2200, 0.7f, sr);
         bedLp.set (2500, 0.6f, sr); rHp[0].set (180, 0.7f, sr); rHp[1].set (180, 0.7f, sr);
         const float pumpRel = std::exp (-1.0f / (beatSec * 0.45f * sr));
+        const float duckRel = std::exp (-1.0f / (0.07f * sr));
+        // skolorna låter olika starkt: lyft de glesa så att alla ligger kring samma nivå
+        static const float trimDb[8] { 0.0f, 3.0f, 1.0f, 0.0f, 0.0f, -1.0f, 0.0f, 3.0f };
+        const float outTrim = c.out * std::pow (10.0f, trimDb[std::clamp (cachedSkola, 0, 7)] / 20.0f);
         const float pump = c.pumpAmt >= 0 ? c.pumpAmt : d.pump;
         const float roomFb = 0.72f + 0.2f * c.kallare, roomA = 1.0f - std::exp (-kTwoPi * 3800.0f / sr);
         const float tapeDepth = c.kassett * 0.0018f * sr;
@@ -349,7 +354,7 @@ public:
             {
                 const auto& ev = pending[e++];
                 trigger (ev, s, d);
-                if (ev.lane == Kick) pumpEnv = 1.0f;
+                if (ev.lane == Kick) { pumpEnv = 1.0f; kickDuck = 1.0f; }
                 if (nOut < maxOut) out[nOut++] = ev;
             }
             float kick = 0, send = 0, sL = 0, sR = 0, roomIn = 0;
@@ -357,6 +362,7 @@ public:
             {
                 float v = renderVoice (l, s, d) * c.level[l];
                 if (l == Kick) { kick += v; continue; }
+                if (l == Bas) v *= 1.0f - 0.55f * kickDuck;   // basen viker undan för kicken, så botten inte grumlas
                 if (((l >= Klick && l <= Skrap) || l == Spoke) && d.ringmod > 0.001f)
                 { rmPh += 310.0f / sr; if (rmPh > 1) rmPh -= 1; v = lerp (v, v * std::sin (kTwoPi * rmPh) * 1.6f, d.ringmod); }
                 const float pan = panOf (l) * width;
@@ -381,6 +387,7 @@ public:
                 sL = lerp (sL, std::round (crushL * q) / q, d.crush); sR = lerp (sR, std::round (crushR * q) / q, d.crush);
             }
             pumpEnv *= pumpRel;
+            kickDuck *= duckRel;
             const float duck = 1.0f - pump * 0.8f * pumpEnv;
             sL *= duck; sR *= duck;
 
@@ -433,7 +440,7 @@ public:
                 Lx = lerp (Lx, wl, std::min (1.0f, c.kassett * 2.0f)); Rx = lerp (Rx, wr, std::min (1.0f, c.kassett * 2.0f));
             }
             Lx = ceil[0].lp (Lx); Rx = ceil[1].lp (Rx);
-            Lx = std::tanh (Lx * c.out * 0.95f) * 0.95f; Rx = std::tanh (Rx * c.out * 0.95f) * 0.95f;
+            Lx = std::tanh (Lx * outTrim * 0.95f) * 0.95f; Rx = std::tanh (Rx * outTrim * 0.95f) * 0.95f;
             if (! std::isfinite (Lx) || ! std::isfinite (Rx)) { reset(); Lx = Rx = 0; }
             L[i] = Lx; R[i] = Rx;
             const float a = std::max (std::fabs (Lx), std::fabs (Rx));
@@ -462,7 +469,7 @@ private:
     struct Voice
     {
         float amp = 0, coef = 0.99f, ph = 0, ph2 = 0, freq = 100, pitchEnv = 0, pitchCoef = 0.99f, click = 0;
-        float throwEnv = 0, vel = 1, glideFrom = 0, glide = 0, body = 0, bodyCoef = 0.99f;
+        float throwEnv = 0, vel = 1, glideFrom = 0, glide = 0, body = 0, bodyCoef = 0.99f, last = 0, declick = 0;
         Svf f1, f2;
         float chordPh[4] {}, chordF[4] {};
         float metPh[6] {};
@@ -482,6 +489,7 @@ private:
     Svf ceil[2], dHpL, dHpR, dLpL, dLpR, bedLp, rHp[2];
     float bedGain = 0, outEnv = 0, pumpEnv = 0, rmPh = 0, crackleImp = 0, crushL = 0, crushR = 0, crushCnt = 0, tapePh = 0;
     Rng noise { 7 };
+    float declickCoef = 0.99f, kickDuck = 0.0f;
 
     void updateCache (const Controls& c) noexcept
     {
@@ -594,6 +602,8 @@ private:
     void trigger (const Event& ev, const Skola& s, const Sound& d) noexcept
     {
         auto& v = voice[ev.lane];
+        // KLICKFRITT: om rösten fortfarande låter, tonas det gamla ut på 2 ms i stället för att klippas
+        v.declick += v.last; v.last = 0.0f;
         v.vel = ev.vel;
         if (ev.dub) v.throwEnv = 1.0f;
         switch (ev.lane)
@@ -608,7 +618,7 @@ private:
             {
                 const float f = mtof ((float) ev.note);
                 v.glideFrom = v.amp > 0.05f ? v.freq : f; v.glide = v.amp > 0.05f ? 1.0f : 0.0f;
-                v.amp = 0.55f * ev.vel; v.coef = std::exp (-6.9f / (d.basDecay * sr)); v.freq = f;
+                v.amp = 0.72f * ev.vel; v.coef = std::exp (-6.9f / (d.basDecay * sr)); v.freq = f;
                 v.pitchEnv = 0.06f; v.pitchCoef = std::exp (-1.0f / (0.012f * sr));
                 break;
             }
@@ -616,7 +626,7 @@ private:
                 v.amp = 0.5f * ev.vel; v.coef = std::exp (-6.9f / (0.004f * sr)); v.f1.set (lerp (2500, 6000, d.hatTone), 1.5f, sr);
                 break;
             case Hat:
-                v.amp = 0.3f * ev.vel; v.coef = std::exp (-6.9f / (std::max (0.001f, d.hatLen) * sr));
+                v.amp = 0.75f * ev.vel; v.coef = std::exp (-6.9f / (std::max (0.001f, d.hatLen) * sr));
                 v.f1.set (lerp (6000, 10000, d.hatTone), 0.8f, sr); v.freq = lerp (7000, 11000, d.hatTone); v.ph = 0;
                 break;
             case Tra:
@@ -627,7 +637,7 @@ private:
                 break;
             case Stab:
             {
-                v.amp = 0.26f * ev.vel; v.coef = std::exp (-6.9f / (0.5f * sr));
+                v.amp = 0.42f * ev.vel; v.coef = std::exp (-6.9f / (0.5f * sr));
                 static const int ch[4][4] = { { 0, 3, 7, 14 }, { 0, 3, 7, 10 }, { 0, 4, 7, 11 }, { 0, 7, 12, 19 } };
                 const int cc = std::clamp (s.chord, 0, 3);
                 for (int k = 0; k < 4; ++k) { v.chordF[k] = mtof ((float) (ev.note + ch[cc][k])) * (1.0f + 0.002f * (float) (k - 1)); v.chordPh[k] = 0.25f * (float) k; }
@@ -640,10 +650,19 @@ private:
         }
     }
 
-    float renderVoice (int l, const Skola& s, const Sound&) noexcept
+    float renderVoice (int l, const Skola& s, const Sound& d) noexcept
     {
         auto& v = voice[l];
-        if (v.amp < 1.0e-5f) return 0.0f;
+        const float dc = v.declick; v.declick *= declickCoef;
+        if (std::fabs (v.declick) < 1.0e-6f) v.declick = 0.0f;
+        if (v.amp < 1.0e-5f) { v.last = 0.0f; return dc; }
+        const float y = renderRaw (l, s, d, v);
+        v.last = y;
+        return y + dc;
+    }
+
+    float renderRaw (int l, const Skola& s, const Sound&, Voice& v) noexcept
+    {
         float y = 0.0f;
         switch (l)
         {
@@ -674,7 +693,7 @@ private:
                     static const float ratio[6] { 1.0f, 1.4471f, 1.6170f, 1.9265f, 2.5028f, 2.6637f };
                     float m = 0;
                     for (int k = 0; k < 6; ++k) { v.metPh[k] += 0.05f * v.freq * ratio[k] / sr; if (v.metPh[k] >= 1) v.metPh[k] -= 1; m += v.metPh[k] < 0.5f ? 1.0f : -1.0f; }
-                    y = v.f1.hp (m * 0.12f + noise.bi() * 0.6f) * v.amp;
+                    y = v.f1.hp (m * 0.15f + noise.bi() * 0.8f) * v.amp;
                 }
                 break;
             case Tra:
@@ -693,7 +712,16 @@ private:
             case Stab:
             {
                 float x = 0;
-                for (int k = 0; k < 4; ++k) { v.chordPh[k] += v.chordF[k] / sr; if (v.chordPh[k] >= 1) v.chordPh[k] -= 1; x += 2 * v.chordPh[k] - 1; }
+                for (int k = 0; k < 4; ++k)
+                {
+                    const float dt = v.chordF[k] / sr;
+                    v.chordPh[k] += dt; if (v.chordPh[k] >= 1) v.chordPh[k] -= 1;
+                    // polyBLEP: sågtand utan vikningsdistorsion
+                    float t = v.chordPh[k], saw = 2 * t - 1;
+                    if (t < dt) { t /= dt; saw -= t + t - t * t - 1; }
+                    else if (t > 1 - dt) { t = (t - 1) / dt; saw -= t * t + t + t + 1; }
+                    x += saw;
+                }
                 y = v.f1.lp (x * 0.25f) * v.amp;
                 break;
             }
