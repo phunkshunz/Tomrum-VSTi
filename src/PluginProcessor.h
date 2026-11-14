@@ -1,22 +1,28 @@
 #pragma once
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_audio_formats/juce_audio_formats.h>
-#include "Tomrum.h"
+#include "Motor.h"
 #include <deque>
 
+using Tr2Controls = tr2::Engine::Controls;
+
+// Ett läge: skola, frön och rattvärden (parameter-id -> verkligt värde)
 struct TomrumPreset
 {
-    juce::String name;
-    int skola;
-    uint32_t seed;
-    std::vector<std::pair<const char*, float>> values;   // parameter-id -> verkligt värde
+    juce::String category, name;
+    int skola = 0;
+    uint32_t seed = 1;
+    std::vector<std::pair<juce::String, float>> values;
 };
 
-class TomrumProcessor : public juce::AudioProcessor
+class TomrumProcessor : public juce::AudioProcessor, private juce::AsyncUpdater
 {
 public:
+    static constexpr int kVarianter = 8;
+    static constexpr int kVariantNote = 48;   // C3..G3 byter variant
+
     TomrumProcessor();
-    ~TomrumProcessor() override = default;
+    ~TomrumProcessor() override { cancelPendingUpdate(); }
 
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override {}
@@ -29,7 +35,7 @@ public:
     bool acceptsMidi() const override { return true; }
     bool producesMidi() const override { return true; }
     bool isMidiEffect() const override { return false; }
-    double getTailLengthSeconds() const override { return std::numeric_limits<double>::infinity(); } // aldrig sövas av DAW:en
+    double getTailLengthSeconds() const override { return std::numeric_limits<double>::infinity(); }
 
     int getNumPrograms() override { return (int) presets().size(); }
     int getCurrentProgram() override { return currentProgram; }
@@ -40,70 +46,83 @@ public:
     void getStateInformation (juce::MemoryBlock&) override;
     void setStateInformation (const void*, int) override;
 
-    // ---- message-tråden ----
-    void genetik();                  // GENETIK: nytt genom inom skolans regler (mönster + ljud)
-    void mutation();                 // MUTATION: två eller tre spår byts, kicken står kvar
-    void mutateLane (int lane);      // tärning per spår
-    void mutateSound();              // bara ljudet
+    // ---- message-tråden
+    void slumpaMonster();             // nya mönster i alla spår som inte är LÅSTA
+    void slumpaSpar (int lane);       // ett spår
+    void slumpaLjud();                // nytt ljud inom skolan
+    void slumpaKarta();               // hoppa till en ny plats på kartan
+    void slumpaAllt();
     void undo();
     bool canUndo() const { return ! undoStack.empty(); }
     void resetRot() { rotReset.store (true); }
 
-    juce::String loadParasite (const juce::File& f);   // tom = OK
-    void clearParasite();
-    bool hasOwnParasite() const { return ownParasite; }
-    juce::String parasiteName() const { return parasiteFile; }
-    tomrum::Parasite currentParasite() const;
+    // VARIANTER: 8 platser. Spara läget, byt med knapp eller MIDI-tangent (byter vid nästa takt)
+    void sparaVariant (int slot);
+    void valjVariant (int slot);      // från panelen
+    bool harVariant (int slot) const { return variantFull[(size_t) juce::jlimit (0, kVarianter - 1, slot)].load(); }
+    int aktivVariant() const { return activeVariant.load(); }
+    int vantandeVariant() const { return requestedVariant.load(); }
 
-    tomrum::Genome currentGenome() const;              // för panelen
-    int skolaIndex() const;
-    int genomeVersion() const { return genVersion.load() * 31 + skolaIndex(); }
+    // DRA UT MIDI: skriver låten (eller 8 takter) som MIDI-fil och returnerar filen
+    juce::File exportMidi (int bars);
 
+    Tr2Controls currentControls() const;
     static const std::vector<TomrumPreset>& presets();
+    void applyPreset (const TomrumPreset& p);
 
     juce::AudioProcessorValueTreeState apvts;
 
     // till panelen
-    std::atomic<float> voidLevel { 1.0f }, rotLevel { 0.0f };
+    std::atomic<float> rotLevel { 0.0f };
     std::atomic<double> playPpq { 0.0 };
     std::atomic<bool> running { false };
-    std::array<std::atomic<float>, tomrum::kLanes> laneFlash {};
-    std::array<float, 512> scope {};          // senaste blockets vågform (bara för visning)
-    std::atomic<int> scopeWrite { 0 };
+    std::atomic<int> delNu { -1 };
+    std::array<std::atomic<float>, tr2::kLanes> laneFlash {};
+    std::atomic<int> stateVersion { 1 };
 
 private:
     static juce::AudioProcessorValueTreeState::ParameterLayout createLayout();
-    void setParam (const char* id, float plain);
+    void setParam (const juce::String& id, float plain);
+    float param (const juce::String& id) const { return apvts.getRawParameterValue (id)->load(); }
     void pushUndo();
-    void bump() { genVersion.fetch_add (1); }
-    void knobsFromGenome (const tomrum::Genome& g);
-    void applyPreset (const TomrumPreset& p);
-    uint32_t freshSeed() { return (uint32_t) rng.nextInt() ^ (uint32_t) juce::Time::getHighResolutionTicks(); }
+    void bump() { stateVersion.fetch_add (1); }
+    uint32_t freshSeed() { return ((uint32_t) rng.nextInt() ^ (uint32_t) juce::Time::getHighResolutionTicks()) | 1u; }
+    void handleAsyncUpdate() override;
 
-    tomrum::Engine engine;
-    std::array<std::atomic<uint32_t>, tomrum::kLanes> laneSeed {};
+    // VARIANT: det som sparas på en plats
+    struct Variant
+    {
+        float mapX = 0.5f, mapY = 0.3f, tomrum = 0.35f, gung = 0.5f, variation = 0.4f, riff = 0.3f, djup = 0.4f;
+        int gungTyp = 1;
+        float dens[tr2::kLanes] {};
+        uint32_t laneSeed[tr2::kLanes] {};
+    };
+    Variant captureVariant() const;
+    void writeVariantToParams (const Variant& v);
+    static void variantToTree (const Variant& v, juce::ValueTree& t);
+    static Variant variantFromTree (const juce::ValueTree& t);
+
+    tr2::Engine engine;
+    std::array<std::atomic<uint32_t>, tr2::kLanes> laneSeed {};
     std::atomic<uint32_t> soundSeed { 1 };
-    std::atomic<int> genVersion { 1 };
-    int seenVersion = 0, seenSkola = -1;
 
-    // PARASIT ur loop
-    std::array<std::atomic<float>, 16> paraOff {};
-    std::atomic<bool> paraOwnFlag { false };
-    std::atomic<int> paraVersion { 1 };
-    int seenPara = 0;
-    bool ownParasite = false;
-    juce::String parasiteFile;
+    // varianterna: skrivs på message-tråden, läses i ljudtråden (byts sällan, kopieras under en flagga)
+    std::array<Variant, kVarianter> variants {};
+    std::array<std::atomic<bool>, kVarianter> variantFull {};
+    std::atomic<int> requestedVariant { -1 }, activeVariant { -1 };
+    std::atomic<bool> variantOverride { false };
+    Variant overrideV;               // bara ljudtråden skriver, message-tråden läser i handleAsyncUpdate
+    std::atomic<int> toParams { -1 };
+    long lastBar = -1;
 
     std::atomic<bool> rotReset { false };
-    std::atomic<double> hostBpm { 124.0 };
     std::deque<juce::ValueTree> undoStack;
     int currentProgram = 0;
     double sr = 48000.0;
     juce::Random rng;
 
-    // MIDI ut: noter som ska släppas
-    struct Off { int note; int samplesLeft; };
-    std::array<Off, 64> offs {};
+    struct Off { int note, channel, samplesLeft; };
+    std::array<Off, 96> offs {};
     int numOffs = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TomrumProcessor)

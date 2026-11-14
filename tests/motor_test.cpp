@@ -39,7 +39,7 @@ static float peak (const Run& r) { float p = 0; for (size_t i = 0; i < r.L.size(
 
 int main()
 {
-    Engine::Controls base; base.seed = 7; base.variation = 0.0f;
+    Engine::Controls base; base.seed = 7; base.variation = 0.0f; for (auto& q : base.laneSeed) q = 7;
 
     // ---- SAMMA
     {

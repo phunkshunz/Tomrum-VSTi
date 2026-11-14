@@ -71,3 +71,14 @@ target_link_libraries(TOMRUM
 if(MSVC)
     target_compile_options(TOMRUM PRIVATE /utf-8 /bigobj)
 endif()
+
+# Tester: cmake -B build -DTOMRUM_TESTS=ON
+option(TOMRUM_TESTS "Bygg TOMRUM-testet" OFF)
+if(TOMRUM_TESTS)
+    juce_add_console_app(TomrumTest PRODUCT_NAME "TomrumTest")
+    target_sources(TomrumTest PRIVATE tests/plugin_test.cpp src/PluginProcessor.cpp src/PluginEditor.cpp)
+    target_include_directories(TomrumTest PRIVATE src)
+    target_compile_definitions(TomrumTest PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JucePlugin_Name="TOMRUM"
+        JUCE_STANDALONE_APPLICATION=0 JUCE_USE_XRANDR=0 JUCE_USE_XINERAMA=0 JUCE_USE_XCURSOR=0 JUCE_USE_XRENDER=0 JUCE_USE_XSHM=0 JUCE_ALSA=0 JUCE_JACK=0)
+    target_link_libraries(TomrumTest PRIVATE juce::juce_audio_utils PUBLIC juce::juce_recommended_config_flags)
+endif()

@@ -1,19 +1,21 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "Lagen.h"
 
 using namespace juce;
-using namespace tomrum;
+using namespace tr2;
 
 namespace
 {
 const StringArray kRoots { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
 String u8 (const char* s) { return String::fromUTF8 (s); }
-
-String lvlId (int l) { return "lvl" + String (l); }
+String lvlId (int l)  { return "lvl" + String (l); }
 String muteId (int l) { return "mute" + String (l); }
-
-// 0..1 i skolans ram -> knappens läge
-float inRange (const tomrum::Range& r, float v) { return r.hi > r.lo ? jlimit (0.0f, 1.0f, (v - r.lo) / (r.hi - r.lo)) : 0.5f; }
+String densId (int l) { return "dens" + String (l); }
+String lasId (int l)  { return "las" + String (l); }
+const char* laneNameOf (int l) { return tomrum::laneName (l); }
+// MIDI ut: trummor på kanal 1 (GM-noter), basen på kanal 2, staben på kanal 3
+int midiChannelOf (int lane) { return lane == Bas ? 2 : (lane == Stab ? 3 : 1); }
 } // namespace
 
 AudioProcessorValueTreeState::ParameterLayout TomrumProcessor::createLayout()
@@ -21,28 +23,40 @@ AudioProcessorValueTreeState::ParameterLayout TomrumProcessor::createLayout()
     AudioProcessorValueTreeState::ParameterLayout l;
     auto pct = AudioParameterFloatAttributes().withStringFromValueFunction ([] (float v, int) { return String (roundToInt (v * 100)) + " %"; });
     auto f = [&] (const String& id, const String& name, float def) { l.add (std::make_unique<AudioParameterFloat> (ParameterID { id, 1 }, name, NormalisableRange<float> (0.f, 1.f), def, pct)); };
+    auto choice = [&] (const String& id, const String& name, const StringArray& items, int def) { l.add (std::make_unique<AudioParameterChoice> (ParameterID { id, 1 }, name, items, def)); };
 
-    {
-        StringArray names; for (int i = 0; i < kNumSkolor; ++i) names.add (u8 (skolor()[i].name));
-        l.add (std::make_unique<AudioParameterChoice> (ParameterID { "skola", 1 }, "Skola", names, 0));
-    }
-    f ("minus", "Minus", 0.2f);
+    { StringArray n; for (int i = 0; i < tomrum::kNumSkolor; ++i) n.add (u8 (tomrum::skolor()[i].name)); choice ("skola", "Skola", n, 0); }
+    l.add (std::make_unique<AudioParameterFloat> (ParameterID { "mapx", 1 }, "Karta X", NormalisableRange<float> (0.f, 1.f), 0.5f,
+        AudioParameterFloatAttributes().withStringFromValueFunction ([] (float v, int) { return v < 0.33f ? u8 ("KÖLN") : (v < 0.67f ? String ("BERLIN") : String ("BUKAREST")); })));
+    l.add (std::make_unique<AudioParameterFloat> (ParameterID { "mapy", 1 }, "Karta Y", NormalisableRange<float> (0.f, 1.f), 0.3f,
+        AudioParameterFloatAttributes().withStringFromValueFunction ([] (float v, int) { return v < 0.33f ? String ("RAK") : (v < 0.67f ? String ("RULL") : String ("BRUTEN")); })));
+    f ("tomrum", "Tomrum", 0.35f);
+    f ("skolfarg", u8 ("Skolfärg"), 0.4f);
+    l.add (std::make_unique<AudioParameterBool> (ParameterID { "poly", 1 }, "Polyrytm", true));
+    { StringArray n; for (int i = 0; i < kNumGung; ++i) n.add (u8 (gungName (i))); choice ("gungtyp", "Gung-typ", n, GMpc); }
+    f ("gung", "Gung", 0.5f);
     l.add (std::make_unique<AudioParameterFloat> (ParameterID { "friktion", 1 }, "Friktion", NormalisableRange<float> (0.f, 2.f), 1.0f, pct));
-    f ("parasit", "Parasit", 0.6f);
-    f ("svang", u8 ("Sväng"), 0.5f);
-    f ("dub", "Dub", 0.3f);
-    f ("ruttna", "Ruttna", 0.5f);
-    l.add (std::make_unique<AudioParameterFloat> (ParameterID { "tak", 1 }, "Tak", NormalisableRange<float> (0.f, 1.f), 0.7f,
-        AudioParameterFloatAttributes().withStringFromValueFunction ([] (float v, int) { const float m = std::pow (2.0f, (v - 0.7f) * 3.0f); return "x" + String (m, 2); })));
-    f ("pump", "Pump", 0.3f);
     f ("variation", "Variation", 0.4f);
-    l.add (std::make_unique<AudioParameterChoice> (ParameterID { "root", 1 }, "Grundton", kRoots, 9));
+    l.add (std::make_unique<AudioParameterBool> (ParameterID { "lat", 1 }, u8 ("Låten"), false));
+    choice ("latlen", u8 ("Låtens längd"), StringArray { "64 TAKTER", "128 TAKTER" }, 0);
+    choice ("root", "Grundton", kRoots, 9);
+    { StringArray n; for (int i = 0; i < kNumSkalor; ++i) n.add (u8 (skalaName (i))); choice ("skala", "Skala", n, SMoll); }
+    f ("riff", "Riff", 0.3f);
+    f ("djup", "Djup", 0.4f);
+    f ("kallare", u8 ("Källare"), 0.3f);
+    f ("kassett", "Kassett", 0.0f);
+    f ("ruttna", "Ruttna", 0.0f);
+    f ("pump", "Pump", 0.3f);
+    l.add (std::make_unique<AudioParameterBool> (ParameterID { "midiut", 1 }, "MIDI ut", true));
     l.add (std::make_unique<AudioParameterFloat> (ParameterID { "ut", 1 }, "Ut", NormalisableRange<float> (-24.f, 6.f, 0.1f), 0.f,
         AudioParameterFloatAttributes().withStringFromValueFunction ([] (float v, int) { return String (v, 1) + " dB"; })));
     for (int k = 0; k < kLanes; ++k)
     {
-        l.add (std::make_unique<AudioParameterFloat> (ParameterID { lvlId (k), 1 }, u8 (laneName (k)), NormalisableRange<float> (0.f, 1.f), 0.8f, pct));
-        l.add (std::make_unique<AudioParameterBool> (ParameterID { muteId (k), 1 }, u8 (laneName (k)) + " tyst", false));
+        const String nm = u8 (laneNameOf (k));
+        l.add (std::make_unique<AudioParameterFloat> (ParameterID { lvlId (k), 1 }, nm, NormalisableRange<float> (0.f, 1.f), 0.8f, pct));
+        l.add (std::make_unique<AudioParameterFloat> (ParameterID { densId (k), 1 }, nm + u8 (" täthet"), NormalisableRange<float> (0.f, 1.f), 0.5f, pct));
+        l.add (std::make_unique<AudioParameterBool> (ParameterID { muteId (k), 1 }, nm + " tyst", false));
+        l.add (std::make_unique<AudioParameterBool> (ParameterID { lasId (k), 1 }, nm + u8 (" låst"), false));
     }
     return l;
 }
@@ -52,6 +66,7 @@ TomrumProcessor::TomrumProcessor()
       apvts (*this, nullptr, "TOMRUM", createLayout())
 {
     for (auto& s : laneSeed) s.store (1);
+    for (auto& v : variantFull) v.store (false);
     applyPreset (presets()[0]);
     undoStack.clear();
 }
@@ -66,27 +81,31 @@ void TomrumProcessor::prepareToPlay (double sampleRate, int)
 {
     sr = sampleRate > 0 ? sampleRate : 48000.0;
     engine.prepare (sr);
-    seenVersion = 0; seenSkola = -1; seenPara = 0; numOffs = 0;
+    numOffs = 0; lastBar = -1;
 }
 
-int TomrumProcessor::skolaIndex() const
+Tr2Controls TomrumProcessor::currentControls() const
 {
-    return jlimit (0, kNumSkolor - 1, roundToInt (apvts.getRawParameterValue ("skola")->load()));
-}
-
-Genome TomrumProcessor::currentGenome() const
-{
-    uint32_t ls[kLanes];
-    for (int l = 0; l < kLanes; ++l) ls[l] = laneSeed[(size_t) l].load();
-    return buildGenome (skolaIndex(), ls, soundSeed.load());
-}
-
-Parasite TomrumProcessor::currentParasite() const
-{
-    Parasite p;
-    if (paraOwnFlag.load()) for (int i = 0; i < 16; ++i) p.off[i] = paraOff[(size_t) i].load();
-    else p.fromSchool (skolor()[skolaIndex()]);
-    return p;
+    Tr2Controls c;
+    c.skola = jlimit (0, tomrum::kNumSkolor - 1, roundToInt (param ("skola")));
+    c.seed = soundSeed.load();
+    for (int l = 0; l < kLanes; ++l) c.laneSeed[l] = laneSeed[(size_t) l].load();
+    c.mapX = param ("mapx"); c.mapY = param ("mapy"); c.tomrum = param ("tomrum"); c.skolfarg = param ("skolfarg");
+    c.poly = param ("poly") > 0.5f ? 1.0f : 0.0f;
+    c.gungTyp = roundToInt (param ("gungtyp")); c.gung = param ("gung"); c.friktion = param ("friktion");
+    c.variation = param ("variation");
+    c.latOn = param ("lat") > 0.5f; c.latBars = roundToInt (param ("latlen")) == 1 ? 128 : 64;
+    c.root = roundToInt (param ("root")); c.skala = roundToInt (param ("skala")); c.riff = param ("riff");
+    c.djup = param ("djup"); c.kallare = param ("kallare"); c.kassett = param ("kassett"); c.rota = param ("ruttna");
+    c.pumpAmt = param ("pump");
+    c.out = Decibels::decibelsToGain (param ("ut"));
+    for (int l = 0; l < kLanes; ++l)
+    {
+        c.level[l] = param (lvlId (l)) * 1.25f;
+        c.laneDens[l] = param (densId (l));
+        c.mute[l] = param (muteId (l)) > 0.5f;
+    }
+    return c;
 }
 
 void TomrumProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer& midi)
@@ -94,8 +113,7 @@ void TomrumProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer& midi
     ScopedNoDenormals noDenormals;
     const int n = buffer.getNumSamples();
     buffer.clear();
-    midi.clear();
-    if (n <= 0) return;
+    if (n <= 0) { midi.clear(); return; }
 
     bool playing = false; double ppq = 0.0, bpm = 120.0;
     if (auto* ph = getPlayHead())
@@ -106,89 +124,154 @@ void TomrumProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer& midi
             if (auto q = pos->getPpqPosition()) ppq = *q; else playing = false;
         }
     bpm = jlimit (40.0, 300.0, bpm);
-    hostBpm.store (bpm);
 
-    // genomet räknas fram här ur fröna: ingen låsning, ingen allokering
-    const int sk = skolaIndex();
-    const int ver = genVersion.load();
-    if (ver != seenVersion || sk != seenSkola)
+    // MIDI in: C3..G3 väljer variant (byts vid nästa takt). Allt annat ignoreras.
+    for (const auto m : midi)
     {
-        uint32_t ls[kLanes];
-        for (int l = 0; l < kLanes; ++l) ls[l] = laneSeed[(size_t) l].load();
-        engine.setGenome (buildGenome (sk, ls, soundSeed.load()));
-        seenVersion = ver;
-        if (sk != seenSkola) seenPara = 0;
-        seenSkola = sk;
+        const auto msg = m.getMessage();
+        if (msg.isNoteOn())
+        {
+            const int slot = msg.getNoteNumber() - kVariantNote;
+            if (slot >= 0 && slot < kVarianter && variantFull[(size_t) slot].load()) requestedVariant.store (slot);
+        }
     }
-    if (paraVersion.load() != seenPara)
+    midi.clear();
+
+    const long bar = (long) std::floor (ppq / 4.0);
+    const int req = requestedVariant.load();
+    if (req >= 0 && (! playing || bar != lastBar))
     {
-        seenPara = paraVersion.load();
-        engine.setParasite (currentParasite());
+        requestedVariant.store (-1);
+        activeVariant.store (req);
+        variantOverride.store (true);
+        toParams.store (req);
+        triggerAsyncUpdate();
     }
-    if (rotReset.exchange (false)) engine.resetRot();
+    lastBar = bar;
 
-    auto v = [this] (const String& id) { return apvts.getRawParameterValue (id)->load(); };
-    Engine::Controls c;
-    c.minus = v ("minus"); c.friction = v ("friktion"); c.parasite = v ("parasit"); c.swing = v ("svang");
-    c.dub = v ("dub"); c.rot = v ("ruttna"); c.pump = v ("pump"); c.variation = v ("variation");
-    c.ceiling = std::pow (2.0f, (v ("tak") - 0.7f) * 3.0f);
-    c.root = roundToInt (v ("root"));
-    c.out = Decibels::decibelsToGain (v ("ut"));
-    for (int l = 0; l < kLanes; ++l) { c.level[l] = v (lvlId (l)) * 1.25f; c.mute[l] = v (muteId (l)) > 0.5f; }
+    if (rotReset.exchange (false)) engine.reset();
 
-    // MIDI ut: släpp gamla noter
+    Tr2Controls c = currentControls();
+    if (variantOverride.load())
+    {
+        const int a = activeVariant.load();
+        if (a >= 0)
+        {
+            const auto& v = variants[(size_t) a];
+            c.mapX = v.mapX; c.mapY = v.mapY; c.tomrum = v.tomrum; c.gung = v.gung; c.gungTyp = v.gungTyp;
+            c.variation = v.variation; c.riff = v.riff; c.djup = v.djup;
+            for (int l = 0; l < kLanes; ++l) { c.laneDens[l] = v.dens[l]; c.laneSeed[l] = v.laneSeed[l]; }
+        }
+    }
+
+    auto* L = buffer.getWritePointer (0);
+    auto* R = buffer.getNumChannels() > 1 ? buffer.getWritePointer (1) : nullptr;
+    HeapBlock<float> tmp; float* Rw = R;
+    if (! Rw) { tmp.malloc ((size_t) n); Rw = tmp.get(); }
+    Event ev[Engine::kMaxEvents];
+    const int nev = engine.process (L, Rw, n, playing, ppq, bpm, c, ev, Engine::kMaxEvents);
+    if (! R) for (int i = 0; i < n; ++i) L[i] = 0.5f * (L[i] + Rw[i]);
+
+    // MIDI ut: släpp gamla noter, skicka nya
+    const bool sendMidi = param ("midiut") > 0.5f;
     for (int i = 0; i < numOffs;)
     {
         auto& o = offs[(size_t) i];
-        if (o.samplesLeft < n || ! playing)
+        if (! playing || o.samplesLeft < n)
         {
-            midi.addEvent (MidiMessage::noteOff (1, o.note), playing ? jlimit (0, n - 1, o.samplesLeft) : 0);
-            offs[(size_t) i] = offs[(size_t) --numOffs];
+            midi.addEvent (MidiMessage::noteOff (o.channel, o.note), playing ? jlimit (0, n - 1, o.samplesLeft) : 0);
+            o = offs[(size_t) --numOffs];
         }
         else { o.samplesLeft -= n; ++i; }
     }
-
-    Event ev[Engine::kMaxEvents];
-    auto* L = buffer.getWritePointer (0);
-    auto* R = buffer.getNumChannels() > 1 ? buffer.getWritePointer (1) : nullptr;
-    int nev = 0;
-    if (R != nullptr) nev = engine.process (L, R, n, playing, ppq, bpm, c, ev, Engine::kMaxEvents);
-    else
-    {
-        HeapBlock<float> tmp ((size_t) n);
-        nev = engine.process (L, tmp.get(), n, playing, ppq, bpm, c, ev, Engine::kMaxEvents);
-        for (int i = 0; i < n; ++i) L[i] = 0.5f * (L[i] + tmp[i]);
-    }
-
-    const int gate = (int) (sr * 0.04);
+    const int gate = (int) (sr * 60.0 / bpm / 4.0 * 0.9);   // en 16-del
     for (int i = 0; i < nev; ++i)
     {
         const auto& e = ev[i];
-        midi.addEvent (MidiMessage::noteOn (1, e.note, jlimit (0.05f, 1.0f, e.vel)), e.offset);
         laneFlash[(size_t) e.lane].store (e.vel);
-        if (numOffs < (int) offs.size()) offs[(size_t) numOffs++] = { e.note, e.offset + gate };
-        else midi.addEvent (MidiMessage::noteOff (1, e.note), jmin (n - 1, e.offset + 1));
+        if (! sendMidi) continue;
+        const int ch = midiChannelOf (e.lane);
+        midi.addEvent (MidiMessage::noteOn (ch, e.note, jlimit (0.05f, 1.0f, e.vel)), e.offset);
+        if (numOffs < (int) offs.size()) offs[(size_t) numOffs++] = { e.note, ch, e.offset + gate };
+        else midi.addEvent (MidiMessage::noteOff (ch, e.note), jmin (n - 1, e.offset + 1));
     }
 
     running.store (playing);
     playPpq.store (ppq);
-    voidLevel.store (engine.voidEnv);
     rotLevel.store (engine.rotShown);
-    int w = scopeWrite.load();
-    for (int i = 0; i < n; i += 2) { scope[(size_t) w] = L[i]; w = (w + 1) % (int) scope.size(); }
-    scopeWrite.store (w);
+    delNu.store (engine.lastDel);
 }
 
-// ---------------------------------------------------------------- GENETIK och MUTATION
-void TomrumProcessor::setParam (const char* id, float plain)
+// ---------------------------------------------------------------- VARIANTER
+TomrumProcessor::Variant TomrumProcessor::captureVariant() const
 {
-    if (auto* p = apvts.getParameter (id))
-        p->setValueNotifyingHost (p->convertTo0to1 (plain));
+    Variant v;
+    v.mapX = param ("mapx"); v.mapY = param ("mapy"); v.tomrum = param ("tomrum"); v.gung = param ("gung");
+    v.gungTyp = roundToInt (param ("gungtyp")); v.variation = param ("variation"); v.riff = param ("riff"); v.djup = param ("djup");
+    for (int l = 0; l < kLanes; ++l) { v.dens[l] = param (densId (l)); v.laneSeed[l] = laneSeed[(size_t) l].load(); }
+    return v;
+}
+
+void TomrumProcessor::writeVariantToParams (const Variant& v)
+{
+    setParam ("mapx", v.mapX); setParam ("mapy", v.mapY); setParam ("tomrum", v.tomrum); setParam ("gung", v.gung);
+    setParam ("gungtyp", (float) v.gungTyp); setParam ("variation", v.variation); setParam ("riff", v.riff); setParam ("djup", v.djup);
+    for (int l = 0; l < kLanes; ++l) { setParam (densId (l), v.dens[l]); laneSeed[(size_t) l].store (v.laneSeed[l]); }
+    bump();
+}
+
+void TomrumProcessor::sparaVariant (int slot)
+{
+    slot = jlimit (0, kVarianter - 1, slot);
+    variantFull[(size_t) slot].store (false);
+    variants[(size_t) slot] = captureVariant();
+    variantFull[(size_t) slot].store (true);
+    activeVariant.store (slot);
+    bump();
+}
+
+void TomrumProcessor::valjVariant (int slot)
+{
+    slot = jlimit (0, kVarianter - 1, slot);
+    if (! variantFull[(size_t) slot].load()) return;
+    if (running.load()) requestedVariant.store (slot);   // byts vid nästa takt
+    else { activeVariant.store (slot); writeVariantToParams (variants[(size_t) slot]); }
+}
+
+void TomrumProcessor::handleAsyncUpdate()
+{
+    const int slot = toParams.exchange (-1);
+    if (slot >= 0 && slot < kVarianter) writeVariantToParams (variants[(size_t) slot]);
+    variantOverride.store (false);
+}
+
+void TomrumProcessor::variantToTree (const Variant& v, ValueTree& t)
+{
+    t.setProperty ("mx", v.mapX, nullptr); t.setProperty ("my", v.mapY, nullptr); t.setProperty ("tr", v.tomrum, nullptr);
+    t.setProperty ("g", v.gung, nullptr); t.setProperty ("gt", v.gungTyp, nullptr); t.setProperty ("va", v.variation, nullptr);
+    t.setProperty ("ri", v.riff, nullptr); t.setProperty ("dj", v.djup, nullptr);
+    for (int l = 0; l < kLanes; ++l) { t.setProperty ("d" + String (l), v.dens[l], nullptr); t.setProperty ("s" + String (l), (int64) v.laneSeed[l], nullptr); }
+}
+
+TomrumProcessor::Variant TomrumProcessor::variantFromTree (const ValueTree& t)
+{
+    Variant v;
+    v.mapX = t.getProperty ("mx", 0.5f); v.mapY = t.getProperty ("my", 0.3f); v.tomrum = t.getProperty ("tr", 0.35f);
+    v.gung = t.getProperty ("g", 0.5f); v.gungTyp = t.getProperty ("gt", 1); v.variation = t.getProperty ("va", 0.4f);
+    v.riff = t.getProperty ("ri", 0.3f); v.djup = t.getProperty ("dj", 0.4f);
+    for (int l = 0; l < kLanes; ++l) { v.dens[l] = t.getProperty ("d" + String (l), 0.5f); v.laneSeed[l] = (uint32_t) (int64) t.getProperty ("s" + String (l), 1); }
+    return v;
+}
+
+// ---------------------------------------------------------------- slump
+void TomrumProcessor::setParam (const String& id, float plain)
+{
+    if (auto* p = apvts.getParameter (id)) p->setValueNotifyingHost (p->convertTo0to1 (plain));
 }
 
 void TomrumProcessor::pushUndo()
 {
-    ValueTree t = apvts.copyState();
+    ValueTree t = apvts.copyState().createCopy();
     for (int l = 0; l < kLanes; ++l) t.setProperty ("seed" + String (l), (int64) laneSeed[(size_t) l].load(), nullptr);
     t.setProperty ("sseed", (int64) soundSeed.load(), nullptr);
     undoStack.push_back (t);
@@ -201,41 +284,21 @@ void TomrumProcessor::undo()
     auto t = undoStack.back(); undoStack.pop_back();
     for (int l = 0; l < kLanes; ++l) laneSeed[(size_t) l].store ((uint32_t) (int64) t.getProperty ("seed" + String (l), 1));
     soundSeed.store ((uint32_t) (int64) t.getProperty ("sseed", 1));
-    apvts.replaceState (t.createCopy());
+    t.removeProperty ("sseed", nullptr);
+    for (int l = 0; l < kLanes; ++l) t.removeProperty ("seed" + String (l), nullptr);
+    apvts.replaceState (t);
     bump();
 }
 
-// Ljudets ramar följer med till knapparna, så att man ser vad GENETIK valde
-void TomrumProcessor::knobsFromGenome (const Genome& g)
-{
-    const Skola& s = skolor()[g.skola];
-    setParam ("minus", g.snd.minus);
-    setParam ("svang", inRange (s.swing, g.snd.swing));
-    setParam ("dub", jlimit (0.0f, 1.0f, g.snd.dub));
-    setParam ("pump", jlimit (0.0f, 1.0f, g.snd.pump));
-}
-
-void TomrumProcessor::genetik()
+void TomrumProcessor::slumpaMonster()
 {
     pushUndo();
-    for (auto& s : laneSeed) s.store (freshSeed());
-    soundSeed.store (freshSeed());
-    knobsFromGenome (currentGenome());
-    engine.resetRot(); rotReset.store (true);
+    for (int l = 0; l < kLanes; ++l)
+        if (param (lasId (l)) < 0.5f && l != Kick) laneSeed[(size_t) l].store (freshSeed());
     bump();
 }
 
-void TomrumProcessor::mutation()
-{
-    pushUndo();
-    // två eller tre spår, aldrig kicken
-    const int count = 2 + rng.nextInt (2);
-    for (int i = 0; i < count; ++i)
-        laneSeed[(size_t) (1 + rng.nextInt (kLanes - 1))].store (freshSeed());
-    bump();
-}
-
-void TomrumProcessor::mutateLane (int lane)
+void TomrumProcessor::slumpaSpar (int lane)
 {
     if (lane < 0 || lane >= kLanes) return;
     pushUndo();
@@ -243,135 +306,94 @@ void TomrumProcessor::mutateLane (int lane)
     bump();
 }
 
-void TomrumProcessor::mutateSound()
+void TomrumProcessor::slumpaLjud()
 {
     pushUndo();
     soundSeed.store (freshSeed());
-    knobsFromGenome (currentGenome());
     bump();
 }
 
-// ---------------------------------------------------------------- PARASIT ur loop
-String TomrumProcessor::loadParasite (const File& f)
+void TomrumProcessor::slumpaKarta()
 {
-    AudioFormatManager fm; fm.registerBasicFormats();
-    std::unique_ptr<AudioFormatReader> r (fm.createReaderFor (f));
-    if (r == nullptr) return u8 ("Kunde inte läsa filen");
-    const double fsr = r->sampleRate > 0 ? r->sampleRate : 44100.0;
-    const int len = (int) jmin<int64> (r->lengthInSamples, (int64) (fsr * 60));
-    if (len < fsr * 0.5) return u8 ("Loopen är för kort");
-    AudioBuffer<float> b ((int) jmax (1u, r->numChannels), len);
-    r->read (&b, 0, len, 0, true, true);
+    pushUndo();
+    setParam ("mapx", rng.nextFloat()); setParam ("mapy", rng.nextFloat() * 0.85f);
+    setParam ("tomrum", 0.2f + 0.4f * rng.nextFloat());
+    bump();
+}
 
-    // energi per hopp, positiv förändring = anslag
-    const int hop = 256;
-    std::vector<float> env;
-    for (int i = 0; i + hop <= len; i += hop)
+void TomrumProcessor::slumpaAllt()
+{
+    pushUndo();
+    for (int l = 0; l < kLanes; ++l) if (param (lasId (l)) < 0.5f && l != Kick) laneSeed[(size_t) l].store (freshSeed());
+    soundSeed.store (freshSeed());
+    setParam ("mapx", rng.nextFloat()); setParam ("mapy", rng.nextFloat() * 0.85f);
+    setParam ("tomrum", 0.2f + 0.4f * rng.nextFloat());
+    setParam ("gungtyp", (float) rng.nextInt (kNumGung)); setParam ("gung", 0.3f + 0.5f * rng.nextFloat());
+    setParam ("riff", rng.nextFloat() * 0.6f);
+    bump();
+}
+
+// ---------------------------------------------------------------- DRA UT MIDI
+File TomrumProcessor::exportMidi (int bars)
+{
+    bars = jlimit (1, 256, bars);
+    auto c = currentControls();
+    Engine e; const double rate = 48000.0, bpm = 124.0;
+    e.prepare (rate);
+    MidiMessageSequence seq[3];
+    const int ppqRes = 960;
+    std::vector<float> L (512), R (512);
+    Event ev[Engine::kMaxEvents];
+    const int total = (int) (bars * 4.0 * 60.0 / bpm * rate);
+    for (int pos = 0; pos < total; pos += 512)
     {
-        float e = 0;
-        for (int ch = 0; ch < b.getNumChannels(); ++ch) { auto* d = b.getReadPointer (ch, i); for (int k = 0; k < hop; ++k) e += d[k] * d[k]; }
-        env.push_back (std::sqrt (e / hop));
-    }
-    std::vector<float> flux (env.size(), 0.0f);
-    for (size_t i = 1; i < env.size(); ++i) flux[i] = jmax (0.0f, env[i] - env[i - 1]);
-    std::vector<int> onsets;
-    const int win = 16, minGap = (int) (0.06 * fsr / hop);
-    int last = -1000;
-    for (size_t i = 1; i + 1 < flux.size(); ++i)
-    {
-        float mean = 0; int cnt = 0;
-        for (int k = (int) i - win; k <= (int) i + win; ++k) if (k >= 0 && k < (int) flux.size()) { mean += flux[(size_t) k]; ++cnt; }
-        mean /= (float) jmax (1, cnt);
-        if (flux[i] > mean * 1.8f + 1.0e-4f && flux[i] >= flux[i - 1] && flux[i] >= flux[i + 1] && (int) i - last >= minGap)
+        const int n = jmin (512, total - pos);
+        const double ppq = pos * bpm / 60.0 / rate;
+        const int ne = e.process (L.data(), R.data(), n, true, ppq, bpm, c, ev, Engine::kMaxEvents);
+        for (int i = 0; i < ne; ++i)
         {
-            onsets.push_back ((int) i * hop); last = (int) i;
+            const double t = (ppq + ev[i].offset * bpm / 60.0 / rate) * ppqRes;
+            const int ch = midiChannelOf (ev[i].lane);
+            auto& s = seq[ch - 1];
+            s.addEvent (MidiMessage::noteOn (ch, ev[i].note, jlimit (0.05f, 1.0f, ev[i].vel)), t);
+            s.addEvent (MidiMessage::noteOff (ch, ev[i].note), t + ppqRes / 4 * 0.9);
         }
     }
-
-    // loopens längd i taktslag: närmaste av 4, 8, 16, 32, 64 vid värdens tempo
-    const double beatsRaw = len / fsr * hostBpm.load() / 60.0;
-    int beats = 4; double bestErr = 1e9;
-    for (int bb : { 4, 8, 16, 32, 64 }) { const double e = std::abs (std::log (beatsRaw / bb)); if (e < bestErr) { bestErr = e; beats = bb; } }
-
-    Parasite p;
-    if (! extractParasite (onsets, len, beats * 4, p)) return u8 ("Hittade för få slag i loopen");
-    for (int i = 0; i < 16; ++i) paraOff[(size_t) i].store (p.off[i]);
-    paraOwnFlag.store (true);
-    ownParasite = true;
-    parasiteFile = f.getFileNameWithoutExtension();
-    paraVersion.fetch_add (1);
-    return {};
+    MidiFile mf; mf.setTicksPerQuarterNote (ppqRes);
+    for (auto& s : seq) { s.updateMatchedPairs(); mf.addTrack (s); }
+    auto dir = File::getSpecialLocation (File::tempDirectory).getChildFile ("TOMRUM");
+    dir.createDirectory();
+    const auto& sk = tomrum::skolor()[c.skola];
+    auto file = dir.getChildFile (String ("TOMRUM ") + u8 (sk.name) + " " + String (bars) + " takter.mid");
+    file.deleteFile();
+    if (auto out = file.createOutputStream()) mf.writeTo (*out);
+    return file;
 }
 
-void TomrumProcessor::clearParasite()
-{
-    paraOwnFlag.store (false);
-    ownParasite = false;
-    parasiteFile.clear();
-    paraVersion.fetch_add (1);
-}
-
-// ---------------------------------------------------------------- PRESETS
-// 32 per skola: egna namn, eget frö, egna knappar. Alla inom skolans regler.
-const std::vector<TomrumPreset>& TomrumProcessor::presets()
-{
-    static const std::vector<TomrumPreset> all = []
-    {
-        static const char* adj[16] = { "TYSTA", "KALLA", "BLÖTA", "SÄNKTA", "TOMMA", "DOVA", "SENA", "SKEVA",
-                                       "NAKNA", "GLÖMDA", "RUTTNA", "DOLDA", "MÖRKA", "SNEA", "LÅNGSAMMA", "TRÖTTA" };
-        static const char* noun[kNumSkolor][8] = {
-            { "DJUPET", "SLUSSEN", "KAJEN", "MUDDRET", "VRAKET", "STRÖMMEN", "DIMMAN", "HAMNEN" },
-            { "NÅLEN", "SKRUVEN", "URVERKET", "FJÄDERN", "SPRINTEN", "GRUSET", "SPÅNET", "LUPPEN" },
-            { "GOLVET", "LÖVEN", "NATTEN", "FUKTEN", "SVETTEN", "KÄLLAREN", "TRAPPAN", "MORGONEN" },
-            { "TRÅDEN", "SPOLEN", "GNISTAN", "KRETSEN", "RELÄET", "LÖDET", "STÖRNINGEN", "KORTSLUTNINGEN" },
-            { "TORNET", "ÅNGAN", "KONDENSEN", "FLÄKTEN", "ISEN", "RÖRET", "TRYCKET", "FROSTEN" },
-            { "KORRIDOREN", "LAMPAN", "SKALPELLEN", "SALEN", "KURVAN", "PULSEN", "GLASET", "RONDEN" },
-            { "BANDET", "HUVUDET", "SUSET", "KNASTRET", "SPOLNINGEN", "ETIKETTEN", "MINNET", "KOPIAN" },
-            { "KLOSSEN", "BARKEN", "STUBBEN", "VEDEN", "KVISTEN", "SÅGEN", "LADAN", "STOCKEN" } };
-        static const int roots[6] = { 9, 2, 7, 0, 5, 4 };
-
-        std::vector<TomrumPreset> v;
-        for (int s = 0; s < kNumSkolor; ++s)
-            for (int i = 0; i < 32; ++i)
-            {
-                TomrumPreset p;
-                const int nn = i % 8, aa = (i / 8) * 4 + (nn + s) % 4;
-                p.name = u8 (adj[aa]) + " " + u8 (noun[s][nn]);
-                p.skola = s;
-                p.seed = hash3 ((uint32_t) s, (uint32_t) i, 0x70u) | 1u;
-                auto h = [&] (uint32_t k) { return h01 ((uint32_t) s, (uint32_t) i, k); };
-                const bool calm = i == 0;
-                p.values = {
-                    { "friktion", calm ? 1.0f : 0.6f + 0.8f * h (1) },
-                    { "parasit", calm ? 0.6f : 0.3f + 0.7f * h (2) },
-                    { "ruttna", calm ? 0.4f : 0.15f + 0.75f * h (3) },
-                    { "tak", calm ? 0.7f : 0.58f + 0.2f * h (4) },
-                    { "variation", calm ? 0.35f : 0.15f + 0.6f * h (5) },
-                    { "root", (float) roots[(int) (h (6) * 6) % 6] } };
-                v.push_back (std::move (p));
-            }
-        return v;
-    }();
-    return all;
-}
+// ---------------------------------------------------------------- lägen och tillstånd
+const std::vector<TomrumPreset>& TomrumProcessor::presets() { return tomrumLagen(); }
 
 void TomrumProcessor::applyPreset (const TomrumPreset& p)
 {
+    // allt tillbaka till grund, sedan lägets värden
+    for (auto* prm : getParameters())
+        if (auto* rp = dynamic_cast<RangedAudioParameter*> (prm))
+        {
+            const auto id = rp->getParameterID();
+            if (id == "ut" || id == "midiut" || id.startsWith ("las")) continue;
+            rp->setValueNotifyingHost (rp->getDefaultValue());
+        }
     setParam ("skola", (float) p.skola);
-    for (int l = 0; l < kLanes; ++l) laneSeed[(size_t) l].store (p.seed);
+    for (const auto& kv : p.values) setParam (kv.first, kv.second);
     soundSeed.store (p.seed);
-    const Genome g = buildGenome (p.skola, std::array<uint32_t, kLanes> { p.seed, p.seed, p.seed, p.seed, p.seed, p.seed, p.seed, p.seed }.data(), p.seed);
-    knobsFromGenome (g);
-    for (auto& kv : p.values) setParam (kv.first, kv.second);
-    for (int l = 0; l < kLanes; ++l) { setParam (lvlId (l).toRawUTF8(), 0.8f); setParam (muteId (l).toRawUTF8(), 0.0f); }
-    rotReset.store (true);
+    for (int l = 0; l < kLanes; ++l) laneSeed[(size_t) l].store (p.seed * 31u + (uint32_t) l * 977u + 1u);
     bump();
 }
 
 void TomrumProcessor::setCurrentProgram (int index)
 {
     if (index < 0 || index >= (int) presets().size()) return;
-    if (! undoStack.empty() || index != currentProgram) pushUndo();
+    pushUndo();
     currentProgram = index;
     applyPreset (presets()[(size_t) index]);
 }
@@ -379,41 +401,48 @@ void TomrumProcessor::setCurrentProgram (int index)
 const String TomrumProcessor::getProgramName (int index)
 {
     if (index < 0 || index >= (int) presets().size()) return {};
-    return presets()[(size_t) index].name;
+    const auto& p = presets()[(size_t) index];
+    return p.category + " / " + p.name;
 }
 
-// ---------------------------------------------------------------- spara / läsa
 void TomrumProcessor::getStateInformation (MemoryBlock& dest)
 {
-    ValueTree t = apvts.copyState();
-    for (int l = 0; l < kLanes; ++l) t.setProperty ("seed" + String (l), (int64) laneSeed[(size_t) l].load(), nullptr);
-    t.setProperty ("sseed", (int64) soundSeed.load(), nullptr);
-    t.setProperty ("program", currentProgram, nullptr);
-    t.setProperty ("paraOwn", paraOwnFlag.load(), nullptr);
-    t.setProperty ("paraName", parasiteFile, nullptr);
-    String ps; for (int i = 0; i < 16; ++i) ps << String (paraOff[(size_t) i].load(), 4) << (i < 15 ? "," : "");
-    t.setProperty ("para", ps, nullptr);
-    if (auto xml = t.createXml()) copyXmlToBinary (*xml, dest);
+    auto state = apvts.copyState().createCopy();
+    for (int l = 0; l < kLanes; ++l) state.setProperty ("seed" + String (l), (int64) laneSeed[(size_t) l].load(), nullptr);
+    state.setProperty ("sseed", (int64) soundSeed.load(), nullptr);
+    state.setProperty ("program", currentProgram, nullptr);
+    state.setProperty ("aktiv", activeVariant.load(), nullptr);
+    ValueTree vs ("VARIANTER");
+    for (int i = 0; i < kVarianter; ++i)
+        if (variantFull[(size_t) i].load()) { ValueTree t ("V"); t.setProperty ("slot", i, nullptr); variantToTree (variants[(size_t) i], t); vs.addChild (t, -1, nullptr); }
+    state.removeChild (state.getChildWithName ("VARIANTER"), nullptr);
+    state.addChild (vs, -1, nullptr);
+    if (auto xml = state.createXml()) copyXmlToBinary (*xml, dest);
 }
 
 void TomrumProcessor::setStateInformation (const void* data, int size)
 {
     auto xml = getXmlFromBinary (data, size);
-    if (xml == nullptr || ! xml->hasTagName (apvts.state.getType())) return;
+    if (! xml || ! xml->hasTagName (apvts.state.getType())) return;
     auto t = ValueTree::fromXml (*xml);
     for (int l = 0; l < kLanes; ++l) laneSeed[(size_t) l].store ((uint32_t) (int64) t.getProperty ("seed" + String (l), 1));
     soundSeed.store ((uint32_t) (int64) t.getProperty ("sseed", 1));
     currentProgram = t.getProperty ("program", 0);
-    auto parts = StringArray::fromTokens (t.getProperty ("para").toString(), ",", "");
-    for (int i = 0; i < 16; ++i) paraOff[(size_t) i].store (i < parts.size() ? parts[i].getFloatValue() : 0.0f);
-    ownParasite = (bool) t.getProperty ("paraOwn", false);
-    paraOwnFlag.store (ownParasite);
-    parasiteFile = t.getProperty ("paraName").toString();
+    activeVariant.store (t.getProperty ("aktiv", -1));
+    for (auto& v : variantFull) v.store (false);
+    auto vs = t.getChildWithName ("VARIANTER");
+    for (int i = 0; i < vs.getNumChildren(); ++i)
+    {
+        auto c = vs.getChild (i);
+        const int slot = c.getProperty ("slot", -1);
+        if (slot < 0 || slot >= kVarianter) continue;
+        variants[(size_t) slot] = variantFromTree (c);
+        variantFull[(size_t) slot].store (true);
+    }
+    t.removeChild (vs, nullptr);
     apvts.replaceState (t);
-    paraVersion.fetch_add (1);
     bump();
 }
 
 AudioProcessorEditor* TomrumProcessor::createEditor() { return new TomrumEditor (*this); }
-
 AudioProcessor* JUCE_CALLTYPE createPluginFilter() { return new TomrumProcessor(); }

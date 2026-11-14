@@ -219,7 +219,8 @@ public:
     struct Controls
     {
         int skola = 0;
-        uint32_t seed = 1;
+        uint32_t seed = 1;                  // ljudet
+        uint32_t laneSeed[kLanes] { 1, 1, 1, 1, 1, 1, 1, 1 };   // mönstret per spår (LÅS behåller dem vid slump)
         float mapX = 0.5f, mapY = 0.3f;     // KARTAN
         float tomrum = 0.35f;               // 0 = fullt, 1 = nästan tomt
         float laneDens[kLanes] { 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f };   // 0.5 = som kartan
@@ -317,7 +318,7 @@ public:
                     if (t < ppq || t >= end) continue;
                     const int off = std::clamp ((int) ((t - ppq) / ppqPerSample), 0, n - 1);
                     const float dubP = c.djup * (0.3f + 1.4f * d.dub) * (l == Stab ? 1.8f : (l == Klick || l == Tra ? 1.0f : 0.5f));
-                    const bool dub = l != Kick && l != Bas && h01 ((uint32_t) k, (uint32_t) l, 0xD0Bu ^ c.seed) < dubP;
+                    const bool dub = l != Kick && l != Bas && h01 ((uint32_t) k, (uint32_t) l, 0xD0Bu ^ c.laneSeed[l]) < dubP;
                     if (numPending < kMaxEvents) pending[numPending++] = { off, l, vel[l], dub, noteFor (c, s, l, k) };
                 }
             }
@@ -485,14 +486,16 @@ private:
     void updateCache (const Controls& c) noexcept
     {
         const int sk = std::clamp (c.skola, 0, kNumSkolor - 1);
-        if (sk == cachedSkola && c.seed == cachedSeed) return;
-        cachedSkola = sk; cachedSeed = c.seed;
+        uint32_t key = c.seed * 2654435761u;
+        for (int l = 0; l < kLanes; ++l) key = hash3 (key, c.laneSeed[l], (uint32_t) l);
+        if (sk == cachedSkola && key == cachedSeed) return;
+        cachedSkola = sk; cachedSeed = key;
         const Skola& s = skolor()[sk];
         snd = buildSound (s, c.seed);
         for (int l = 0; l < kLanes; ++l)
         {
             int nv = 0; while (nv < 3 && s.lane[l].pattern[nv] != nullptr) ++nv;
-            schoolVariant[l] = nv > 0 ? (int) (h01 (c.seed, (uint32_t) l, 0x5C01u) * (float) nv) % nv : -1;
+            schoolVariant[l] = nv > 0 ? (int) (h01 (c.laneSeed[l], (uint32_t) l, 0x5C01u) * (float) nv) % nv : -1;
         }
     }
 
@@ -536,7 +539,12 @@ private:
         if (c.variation > 0.001f && w < 1.0f)
         {
             const uint32_t block = (uint32_t) fdiv (k, 64);
-            w += (h01 (block, (uint32_t) (l * 131 + idx), c.seed ^ 0xA11Au) - 0.5f) * 0.3f * c.variation;
+            w += (h01 (block, (uint32_t) (l * 131 + idx), c.laneSeed[l] ^ 0xA11Au) - 0.5f) * 0.3f * c.variation;
+        }
+        // mönstrets eget frö: varje spår får sin egen lilla förskjutning av vikterna (samma varje takt)
+        if (w < 1.0f)
+        {
+            w += (h01 ((uint32_t) idx, (uint32_t) l, c.laneSeed[l] ^ 0x5EEDu) - 0.5f) * 0.22f;
         }
         return w;
     }
@@ -559,9 +567,10 @@ private:
         {
             const long bar = fdiv (k, 16);
             const uint32_t phrase = (uint32_t) fdiv (bar, 4);
-            if (h01 ((uint32_t) wrap (k, 16), phrase, c.seed ^ salt) >= c.riff) return 0;
+            const uint32_t rs = c.laneSeed[salt == 0xBA55u ? Bas : Stab];
+            if (h01 ((uint32_t) wrap (k, 16), phrase, rs ^ salt) >= c.riff) return 0;
             static const int degs[8] = { 0, 4, 7, -3, 2, 0, 5, -7 };   // grund, kvint, oktav, under ...
-            return degs[(int) (h01 ((uint32_t) wrap (k, 16), phrase * 7u, c.seed ^ salt ^ 0x77u) * 7.999f)];
+            return degs[(int) (h01 ((uint32_t) wrap (k, 16), phrase * 7u, rs ^ salt ^ 0x77u) * 7.999f)];
         };
         switch (l)
         {
